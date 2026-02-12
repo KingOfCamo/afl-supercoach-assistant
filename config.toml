@@ -1,0 +1,25 @@
+[general]
+season = 2025
+current_round = 1
+timezone = "Australia/Melbourne"
+
+[database]
+path = "data/supercoach.db"
+
+[scraping]
+rate_limit_seconds = 2.0
+max_retries = 3
+user_agent = "AFL-SuperCoach-Assistant/0.1"
+
+[scraping.footywire]
+base_url = "https://www.footywire.com/afl/footy"
+supercoach_url = "https://www.footywire.com/afl/footy/supercoach_round"
+injury_url = "https://www.footywire.com/afl/footy/injury_list"
+
+[ai]
+model = "claude-sonnet-4-20250514"
+max_tokens = 4096
+
+[display]
+table_style = "rounded"
+max_recent_scores = 5
