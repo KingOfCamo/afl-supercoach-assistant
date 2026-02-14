@@ -21,6 +21,8 @@ class ScrapingConfig:
     footywire_base_url: str = "https://www.footywire.com/afl/footy"
     footywire_supercoach_url: str = "https://www.footywire.com/afl/footy/supercoach_round"
     footywire_injury_url: str = "https://www.footywire.com/afl/footy/injury_list"
+    squiggle_base_url: str = "https://api.squiggle.com.au"
+    squiggle_user_agent: str = "AFL-SuperCoach-Assistant/0.2"
 
 
 @dataclass
@@ -47,8 +49,10 @@ class DisplayConfig:
 
 @dataclass
 class Config:
-    season: int = 2025
+    season: int = 2026
     current_round: int = 1
+    trades_remaining: int = 30
+    boosts_remaining: int = 5
     database: DatabaseConfig = field(default_factory=DatabaseConfig)
     scraping: ScrapingConfig = field(default_factory=ScrapingConfig)
     ai: AIConfig = field(default_factory=AIConfig)
@@ -91,6 +95,7 @@ def load_config() -> Config:
     db_section = toml_data.get("database", {})
     scraping_section = toml_data.get("scraping", {})
     fw_section = scraping_section.pop("footywire", {})
+    sq_section = scraping_section.pop("squiggle", {})
     ai_section = toml_data.get("ai", {})
     display_section = toml_data.get("display", {})
 
@@ -107,6 +112,8 @@ def load_config() -> Config:
             "supercoach_url", ScrapingConfig.footywire_supercoach_url
         ),
         footywire_injury_url=fw_section.get("injury_url", ScrapingConfig.footywire_injury_url),
+        squiggle_base_url=sq_section.get("base_url", ScrapingConfig.squiggle_base_url),
+        squiggle_user_agent=sq_section.get("user_agent", ScrapingConfig.squiggle_user_agent),
     )
 
     ai_config = AIConfig(
@@ -121,8 +128,10 @@ def load_config() -> Config:
     )
 
     _config = Config(
-        season=general.get("season", 2025),
+        season=general.get("season", 2026),
         current_round=general.get("current_round", 1),
+        trades_remaining=general.get("trades_remaining", 30),
+        boosts_remaining=general.get("boosts_remaining", 5),
         database=db_config,
         scraping=scraping_config,
         ai=ai_config,

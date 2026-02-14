@@ -7,7 +7,15 @@ import pytest
 from sqlalchemy import create_engine, select, event
 from sqlalchemy.orm import sessionmaker
 
-from src.models.database import Base, Player, SupercoachScore, Injury, MyTeamSlot, Trade
+from src.models.database import (
+    Base,
+    DfsPlayerStats,
+    Injury,
+    MyTeamSlot,
+    Player,
+    SupercoachScore,
+    Trade,
+)
 
 
 @pytest.fixture
@@ -38,6 +46,10 @@ def test_create_tables(db_session):
     assert "injuries" in tables
     assert "my_team" in tables
     assert "trades" in tables
+    assert "dfs_player_stats" in tables
+    assert "fixtures" in tables
+    assert "team_dvp" in tables
+    assert "player_projections" in tables
 
 
 def test_insert_player(db_session):
@@ -129,3 +141,63 @@ def test_my_team_slot(db_session):
     assert result.position_slot == "MID1"
     assert result.is_captain is True
     assert result.is_vice_captain is False
+
+
+def test_dfs_player_stats(db_session):
+    """Should create DFS player stats linked to a player."""
+    player = Player(
+        name="Marcus Bontempelli",
+        team="Western Bulldogs",
+        position="MID",
+        champion_data_id="CD_I297373",
+    )
+    db_session.add(player)
+    db_session.flush()
+
+    dfs = DfsPlayerStats(
+        player_id=player.id,
+        season=2026,
+        salary=706800,
+        ownership_pct=0.201216,
+        games_played=18,
+        sc_avg=130.6,
+        sc_max=177,
+        scores_100_plus=15,
+        scores_120_plus=13,
+        cba_pct=0.671,
+        points_per_minute=1.257,
+        reg_avg=130.6,
+        last_5_avg=147.4,
+        prev_year_avg=123.75,
+        prev_2yr_avg=129.65,
+    )
+    db_session.add(dfs)
+    db_session.commit()
+
+    result = db_session.execute(
+        select(DfsPlayerStats).where(DfsPlayerStats.player_id == player.id)
+    ).scalar_one()
+    assert result.salary == 706800
+    assert result.sc_avg == 130.6
+    assert result.scores_120_plus == 13
+    assert result.season == 2026
+
+    # Check relationship
+    assert player.champion_data_id == "CD_I297373"
+    assert len(player.dfs_stats) == 1
+
+
+def test_dfs_unique_constraint(db_session):
+    """Should not allow duplicate DFS stats for same player/season."""
+    player = Player(name="Test Player", team="Test Team")
+    db_session.add(player)
+    db_session.flush()
+
+    dfs1 = DfsPlayerStats(player_id=player.id, season=2026, salary=500000)
+    db_session.add(dfs1)
+    db_session.commit()
+
+    dfs2 = DfsPlayerStats(player_id=player.id, season=2026, salary=600000)
+    db_session.add(dfs2)
+    with pytest.raises(Exception):
+        db_session.commit()

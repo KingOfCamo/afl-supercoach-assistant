@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SuperCoach AI Dashboard</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <!-- Connection overlay - shown when API server isn't running -->
+    <div id="connection-overlay" class="connection-overlay">
+        <div class="connection-card">
+            <div class="connection-icon">&#9889;</div>
+            <h2>SuperCoach AI Dashboard</h2>
+            <p>Start your local API server to connect:</p>
+            <div class="connection-code">
+                <code>cd ~/afl-supercoach-assistant</code>
+                <code>sc web</code>
+            </div>
+            <p class="connection-hint">The dashboard will connect automatically once the server is running.</p>
+            <div class="connection-spinner">
+                <div class="spinner"></div>
+                <span>Waiting for connection...</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="app-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-title">
+                SuperCoach AI
+                <small id="sidebar-info">Connecting...</small>
+            </div>
+            <nav>
+                <a class="nav-item active" data-section="team" onclick="App.showSection('team')">&#127968; Team Builder</a>
+                <a class="nav-item" data-section="dashboard" onclick="App.showSection('dashboard')">&#128202; Dashboard</a>
+                <a class="nav-item" data-section="ai" onclick="App.showSection('ai')">&#128172; AI Insights</a>
+            </nav>
+            <div class="connection-indicator" id="connection-status">
+                <span class="dot disconnected" id="connection-dot"></span>
+                <span id="connection-text">Connecting...</span>
+            </div>
+        </aside>
+
+        <!-- Main content -->
+        <main class="main-content">
+            <header class="header">
+                <h1>SuperCoach AI Dashboard</h1>
+                <span class="round-info" id="header-info"></span>
+            </header>
+
+            <div class="content-area">
+
+                <!-- SECTION: Team Builder -->
+                <div id="section-team" class="section active">
+                    <div class="toolbar">
+                        <button class="btn" onclick="App.Team.importCSV()">&#128193; Import CSV</button>
+                        <button class="btn btn-danger" onclick="App.Team.clearTeam()">&#128465; Clear Team</button>
+                        <input type="file" id="csv-upload" accept=".csv" style="display:none" onchange="App.Team.handleCSV(event)">
+                        <div class="salary-counter">
+                            <span id="team-count">0</span>/30 players &nbsp;|&nbsp;
+                            Salary: <strong id="salary-total">$0</strong>
+                        </div>
+                    </div>
+
+                    <div class="team-builder">
+                        <!-- Left: Player Search -->
+                        <div class="panel">
+                            <div class="panel-header">
+                                <h3>Player Search</h3>
+                            </div>
+                            <div style="padding: 12px; border-bottom: 1px solid var(--border);">
+                                <input class="input" id="player-search" type="text"
+                                       placeholder="Search players by name..."
+                                       oninput="App.Team.debounceSearch(this.value)">
+                            </div>
+                            <div class="panel-body" id="search-results">
+                                <div class="empty-state">Type a player name to search</div>
+                            </div>
+                        </div>
+
+                        <!-- Right: Current Team -->
+                        <div class="panel">
+                            <div class="panel-header">
+                                <h3>My Team</h3>
+                            </div>
+                            <div class="panel-body" id="team-display">
+                                <div class="empty-state">No team loaded yet. Search and add players, or import a CSV.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECTION: Dashboard -->
+                <div id="section-dashboard" class="section">
+                    <h2 class="section-title">Analytics Dashboard</h2>
+
+                    <div class="stat-cards" id="dash-stats">
+                        <div class="stat-card"><div class="label">Round</div><div class="value" id="stat-round">-</div></div>
+                        <div class="stat-card"><div class="label">Projected Total</div><div class="value cyan" id="stat-projected">-</div></div>
+                        <div class="stat-card"><div class="label">Trades Left</div><div class="value" id="stat-trades">-</div></div>
+                        <div class="stat-card"><div class="label">Injuries</div><div class="value red" id="stat-injuries">-</div></div>
+                        <div class="stat-card"><div class="label">Top Captain</div><div class="value green" id="stat-captain">-</div></div>
+                    </div>
+
+                    <h3 class="subsection-title">Team Projections</h3>
+                    <div id="projections-table">
+                        <div class="loading"><div class="spinner"></div><div>Loading projections...</div></div>
+                    </div>
+
+                    <h3 class="subsection-title">Captain Rankings</h3>
+                    <div id="captain-table">
+                        <div class="loading"><div class="spinner"></div><div>Loading captain rankings...</div></div>
+                    </div>
+
+                    <h3 class="subsection-title">Trade Recommendations</h3>
+                    <div id="trades-display">
+                        <div class="loading"><div class="spinner"></div><div>Analyzing trades...</div></div>
+                    </div>
+
+                    <h3 class="subsection-title">Team Injury Alerts</h3>
+                    <div id="injuries-display">
+                        <div class="loading"><div class="spinner"></div><div>Checking injuries...</div></div>
+                    </div>
+                </div>
+
+                <!-- SECTION: AI Insights -->
+                <div id="section-ai" class="section">
+                    <h2 class="section-title">AI Insights</h2>
+
+                    <div class="ai-tabs">
+                        <button class="ai-tab active" data-tab="weekly" onclick="App.AI.switchTab('weekly')">Weekly Advice</button>
+                        <button class="ai-tab" data-tab="captain" onclick="App.AI.switchTab('captain')">Captain</button>
+                        <button class="ai-tab" data-tab="trades" onclick="App.AI.switchTab('trades')">Trades</button>
+                        <button class="ai-tab" data-tab="chat" onclick="App.AI.switchTab('chat')">Chat</button>
+                    </div>
+
+                    <!-- AI content panels -->
+                    <div id="ai-panel-weekly" class="ai-panel">
+                        <div class="ai-content" id="ai-weekly-content">
+                            <div class="empty-state">Click to load weekly AI advice</div>
+                        </div>
+                        <div style="margin-top: 10px;">
+                            <button class="btn btn-primary" onclick="App.AI.loadWeekly()">&#129302; Get Weekly Advice</button>
+                        </div>
+                    </div>
+
+                    <div id="ai-panel-captain" class="ai-panel" style="display:none;">
+                        <div class="ai-content" id="ai-captain-content">
+                            <div class="empty-state">Click to load captain advice</div>
+                        </div>
+                        <div style="margin-top: 10px;">
+                            <button class="btn btn-primary" onclick="App.AI.loadCaptain()">&#128081; Get Captain Advice</button>
+                        </div>
+                    </div>
+
+                    <div id="ai-panel-trades" class="ai-panel" style="display:none;">
+                        <div class="ai-content" id="ai-trades-content">
+                            <div class="empty-state">Click to load trade advice</div>
+                        </div>
+                        <div style="margin-top: 10px;">
+                            <button class="btn btn-primary" onclick="App.AI.loadTrades()">&#128260; Get Trade Advice</button>
+                        </div>
+                    </div>
+
+                    <div id="ai-panel-chat" class="ai-panel" style="display:none;">
+                        <div class="chat-container">
+                            <div class="chat-log" id="chat-log"></div>
+                            <div class="chat-input-row">
+                                <input class="input" id="chat-input" type="text"
+                                       placeholder="Ask anything about SuperCoach..."
+                                       onkeydown="if(event.key==='Enter')App.AI.sendChat()">
+                                <button class="btn btn-primary" onclick="App.AI.sendChat()">Send</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

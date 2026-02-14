@@ -1,7 +1,9 @@
 [general]
-season = 2025
+season = 2026
 current_round = 1
 timezone = "Australia/Melbourne"
+trades_remaining = 30
+boosts_remaining = 5
 
 [database]
 path = "data/supercoach.db"
@@ -15,6 +17,10 @@ user_agent = "AFL-SuperCoach-Assistant/0.1"
 base_url = "https://www.footywire.com/afl/footy"
 supercoach_url = "https://www.footywire.com/afl/footy/supercoach_round"
 injury_url = "https://www.footywire.com/afl/footy/injury_list"
+
+[scraping.squiggle]
+base_url = "https://api.squiggle.com.au"
+user_agent = "AFL-SuperCoach-Assistant/0.2"
 
 [ai]
 model = "claude-sonnet-4-20250514"

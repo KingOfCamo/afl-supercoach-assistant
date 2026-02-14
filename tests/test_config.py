@@ -13,10 +13,13 @@ def test_load_config():
     """Config should load with expected defaults."""
     reset_config()
     config = load_config()
-    assert config.season == 2025
+    assert config.season == 2026
     assert config.current_round == 1
+    assert config.trades_remaining == 30
+    assert config.boosts_remaining == 5
     assert config.scraping.rate_limit_seconds == 2.0
     assert config.scraping.max_retries == 3
+    assert config.scraping.squiggle_base_url == "https://api.squiggle.com.au"
     assert config.ai.model == "claude-sonnet-4-20250514"
     assert "supercoach.db" in config.database.path
     assert config.database.url.startswith("sqlite:///")

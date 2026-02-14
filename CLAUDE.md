@@ -1,7 +1,7 @@
 # AFL SuperCoach AI Assistant
 
 ## Project Overview
-Python CLI tool for AFL SuperCoach analysis. Scrapes FootyWire data, stores in SQLite, provides AI-powered recommendations via Claude API.
+Python CLI tool for AFL SuperCoach analysis. Scrapes FootyWire data, imports DFS Australia spreadsheets, stores in SQLite, provides AI-powered recommendations via Claude API.
 
 ## Tech Stack
 - Python 3.9+ (code uses `from __future__ import annotations` for modern type hints)
@@ -12,8 +12,9 @@ Python CLI tool for AFL SuperCoach analysis. Scrapes FootyWire data, stores in S
 
 ## Project Structure
 - `src/` — All source code (package root)
-- `src/models/database.py` — SQLAlchemy models and engine setup
+- `src/models/database.py` — SQLAlchemy models and engine setup (7 tables: Player, SupercoachScore, MatchStats, Injury, MyTeamSlot, Trade, DfsPlayerStats)
 - `src/scrapers/` — Web scrapers (base class + footywire)
+- `src/importers/` — File importers (DFS Australia spreadsheet)
 - `src/ai/` — Claude API integration
 - `src/cli/main.py` — Typer CLI app
 - `src/utils/config.py` — Configuration loading
@@ -24,11 +25,14 @@ Python CLI tool for AFL SuperCoach analysis. Scrapes FootyWire data, stores in S
 ```bash
 sc db init                          # Initialize database
 sc scrape footywire -s 2024 -r 1    # Scrape round scores
+sc import dfs-australia <file.xlsx> # Import DFS Australia spreadsheet
 sc team show                        # Display current team
 sc team import team.csv             # Import team from CSV
-sc player <name>                    # Player profile and stats
+sc player <name>                    # Player profile and stats (incl. DFS data)
 sc player <name> --ai               # Player profile + AI analysis
 sc advice                           # AI weekly analysis
+sc chat "question"                  # Free-form AI chat
+sc injuries                         # Show current injury list
 ```
 
 ## Conventions

@@ -1,0 +1,260 @@
+/* AFL SuperCoach Dashboard — Textual CSS */
+
+Screen {
+    background: $surface;
+    layout: horizontal;
+}
+
+/* ─── Sidebar ─── */
+
+#sidebar {
+    dock: left;
+    width: 28;
+    background: $panel;
+    border-right: solid $accent;
+    padding: 1 0;
+}
+
+#sidebar-title {
+    text-align: center;
+    text-style: bold;
+    color: $accent;
+    padding: 0 1 1 1;
+    border-bottom: solid $accent;
+    margin-bottom: 1;
+}
+
+#sidebar-info {
+    text-align: center;
+    color: $text-muted;
+    padding: 0 1;
+    margin-bottom: 1;
+}
+
+#nav-list {
+    padding: 0 1;
+}
+
+#nav-list > .option-list--option {
+    padding: 0 1;
+}
+
+/* ─── Main content area ─── */
+
+#content {
+    width: 1fr;
+    padding: 1 2;
+    overflow-y: auto;
+}
+
+.screen-title {
+    text-style: bold;
+    color: $accent;
+    text-align: center;
+    margin-bottom: 1;
+}
+
+/* ─── Stat cards ─── */
+
+.stat-grid {
+    layout: horizontal;
+    height: auto;
+    margin-bottom: 1;
+}
+
+.stat-card {
+    width: 1fr;
+    height: 5;
+    border: round $accent;
+    content-align: center middle;
+    margin: 0 1 0 0;
+    padding: 0 1;
+}
+
+.stat-card .stat-title {
+    text-align: center;
+    color: $text-muted;
+    text-style: italic;
+}
+
+.stat-card .stat-value {
+    text-align: center;
+    text-style: bold;
+    color: $text;
+}
+
+.stat-card-green {
+    border: round $success;
+}
+
+.stat-card-yellow {
+    border: round $warning;
+}
+
+.stat-card-red {
+    border: round $error;
+}
+
+/* ─── Data tables ─── */
+
+DataTable {
+    height: 1fr;
+    margin-bottom: 1;
+}
+
+/* ─── Controls row ─── */
+
+.controls {
+    layout: horizontal;
+    height: auto;
+    margin-bottom: 1;
+    align: left middle;
+}
+
+.controls Input {
+    width: 16;
+    margin-right: 1;
+}
+
+.controls Button {
+    margin-right: 1;
+}
+
+.controls Switch {
+    margin-right: 1;
+}
+
+.controls Select {
+    width: 20;
+    margin-right: 1;
+}
+
+/* ─── AI response panels ─── */
+
+.ai-panel {
+    border: round $success;
+    padding: 1;
+    margin-top: 1;
+    max-height: 50%;
+    overflow-y: auto;
+}
+
+.ai-loading {
+    text-align: center;
+    color: $warning;
+    text-style: italic;
+}
+
+/* ─── Chat ─── */
+
+#chat-log {
+    height: 1fr;
+    border: round $panel;
+    padding: 1;
+    overflow-y: auto;
+    margin-bottom: 1;
+}
+
+.user-msg {
+    background: $primary-darken-2;
+    margin: 0 0 1 4;
+    padding: 1;
+}
+
+.assistant-msg {
+    background: $panel;
+    margin: 0 4 1 0;
+    padding: 1;
+}
+
+#chat-input-row {
+    layout: horizontal;
+    height: auto;
+    dock: bottom;
+}
+
+#chat-input-row Input {
+    width: 1fr;
+    margin-right: 1;
+}
+
+/* ─── Data management ─── */
+
+.data-section {
+    border: round $accent;
+    padding: 1;
+    margin-bottom: 1;
+}
+
+.data-section-title {
+    text-style: bold;
+    color: $accent;
+    margin-bottom: 1;
+}
+
+.data-row {
+    layout: horizontal;
+    height: auto;
+    margin-bottom: 1;
+    align: left middle;
+}
+
+.data-row Input {
+    width: 20;
+    margin-right: 1;
+}
+
+/* ─── Status indicators ─── */
+
+.status-complete {
+    color: $success;
+}
+
+.status-in-progress {
+    color: $warning;
+}
+
+.status-upcoming {
+    color: $text-muted;
+}
+
+/* ─── Trade panels ─── */
+
+.trade-panel {
+    border: round $warning;
+    padding: 1;
+    margin-bottom: 1;
+}
+
+.trade-out {
+    color: $error;
+}
+
+.trade-in {
+    color: $success;
+}
+
+/* ─── Player profile ─── */
+
+.player-profile {
+    border: round $accent;
+    padding: 1;
+    margin-bottom: 1;
+}
+
+/* ─── Loading state ─── */
+
+.loading-msg {
+    text-align: center;
+    color: $text-muted;
+    text-style: italic;
+    padding: 2;
+}
+
+/* ─── Empty state ─── */
+
+.empty-msg {
+    text-align: center;
+    color: $warning;
+    padding: 2;
+}

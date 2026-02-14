@@ -43,6 +43,7 @@ class Player(Base):
     height_cm: Mapped[Optional[int]] = mapped_column(Integer)
     weight_kg: Mapped[Optional[int]] = mapped_column(Integer)
     footywire_id: Mapped[Optional[str]] = mapped_column(String(200), unique=True, index=True)
+    champion_data_id: Mapped[Optional[str]] = mapped_column(String(50), unique=True, index=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(
@@ -53,6 +54,8 @@ class Player(Base):
     match_stats: Mapped[List["MatchStats"]] = relationship(back_populates="player")
     injuries: Mapped[List["Injury"]] = relationship(back_populates="player")
     team_slots: Mapped[List["MyTeamSlot"]] = relationship(back_populates="player")
+    dfs_stats: Mapped[List["DfsPlayerStats"]] = relationship(back_populates="player")
+    projections: Mapped[List["PlayerProjection"]] = relationship(back_populates="player")
 
 
 class SupercoachScore(Base):
@@ -154,6 +157,147 @@ class Trade(Base):
 
     player_out: Mapped["Player"] = relationship(foreign_keys=[player_out_id])
     player_in: Mapped["Player"] = relationship(foreign_keys=[player_in_id])
+
+
+class DfsPlayerStats(Base):
+    """Pre-season stats from DFS Australia spreadsheet.
+
+    Stores salary, ownership, advanced metrics (CBA%, PPM),
+    historical averages, and state league stats.
+    One row per player per season.
+    """
+
+    __tablename__ = "dfs_player_stats"
+    __table_args__ = (
+        UniqueConstraint("player_id", "season", name="uq_dfs_player_season"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    player_id: Mapped[int] = mapped_column(ForeignKey("players.id"), index=True)
+    season: Mapped[int] = mapped_column(Integer)
+
+    # SuperCoach pricing & ownership
+    salary: Mapped[Optional[int]] = mapped_column(Integer)
+    ownership_pct: Mapped[Optional[float]] = mapped_column(Float)
+
+    # 2025 AFL SuperCoach stats
+    games_played: Mapped[Optional[int]] = mapped_column(Integer)
+    sc_avg: Mapped[Optional[float]] = mapped_column(Float)
+    sc_max: Mapped[Optional[int]] = mapped_column(Integer)
+    scores_100_plus: Mapped[Optional[int]] = mapped_column(Integer)
+    scores_120_plus: Mapped[Optional[int]] = mapped_column(Integer)
+
+    # Advanced metrics
+    cba_pct: Mapped[Optional[float]] = mapped_column(Float)
+    points_per_minute: Mapped[Optional[float]] = mapped_column(Float)
+    reg_avg: Mapped[Optional[float]] = mapped_column(Float)
+    last_5_avg: Mapped[Optional[float]] = mapped_column(Float)
+    finals_avg: Mapped[Optional[float]] = mapped_column(Float)
+
+    # Historical SC averages
+    prev_year_avg: Mapped[Optional[float]] = mapped_column(Float)
+    prev_2yr_avg: Mapped[Optional[float]] = mapped_column(Float)
+
+    # VFL Fantasy stats
+    vfl_games: Mapped[Optional[int]] = mapped_column(Integer)
+    vfl_avg: Mapped[Optional[float]] = mapped_column(Float)
+    vfl_max: Mapped[Optional[int]] = mapped_column(Integer)
+    vfl_100_plus: Mapped[Optional[int]] = mapped_column(Integer)
+
+    # WAFL Fantasy stats
+    wafl_games: Mapped[Optional[int]] = mapped_column(Integer)
+    wafl_avg: Mapped[Optional[float]] = mapped_column(Float)
+    wafl_max: Mapped[Optional[int]] = mapped_column(Integer)
+    wafl_100_plus: Mapped[Optional[int]] = mapped_column(Integer)
+
+    # SANFL Fantasy stats
+    sanfl_games: Mapped[Optional[int]] = mapped_column(Integer)
+    sanfl_avg: Mapped[Optional[float]] = mapped_column(Float)
+    sanfl_max: Mapped[Optional[int]] = mapped_column(Integer)
+    sanfl_100_plus: Mapped[Optional[int]] = mapped_column(Integer)
+
+    # SANFL U18s Fantasy stats
+    sanfl_u18_games: Mapped[Optional[int]] = mapped_column(Integer)
+    sanfl_u18_avg: Mapped[Optional[float]] = mapped_column(Float)
+    sanfl_u18_max: Mapped[Optional[int]] = mapped_column(Integer)
+    sanfl_u18_100_plus: Mapped[Optional[int]] = mapped_column(Integer)
+
+    # Coates Talent League Fantasy stats
+    ctl_games: Mapped[Optional[int]] = mapped_column(Integer)
+    ctl_avg: Mapped[Optional[float]] = mapped_column(Float)
+    ctl_max: Mapped[Optional[int]] = mapped_column(Integer)
+    ctl_100_plus: Mapped[Optional[int]] = mapped_column(Integer)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    player: Mapped["Player"] = relationship(back_populates="dfs_stats")
+
+
+class Fixture(Base):
+    """AFL fixture/schedule. One row per game."""
+
+    __tablename__ = "fixtures"
+    __table_args__ = (
+        UniqueConstraint(
+            "season", "round", "home_team", name="uq_fixture_season_round_home"
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    season: Mapped[int] = mapped_column(Integer, index=True)
+    round: Mapped[int] = mapped_column(Integer, index=True)
+    home_team: Mapped[str] = mapped_column(String(50), index=True)
+    away_team: Mapped[str] = mapped_column(String(50), index=True)
+    venue: Mapped[Optional[str]] = mapped_column(String(100))
+    date: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    home_score: Mapped[Optional[int]] = mapped_column(Integer)
+    away_score: Mapped[Optional[int]] = mapped_column(Integer)
+    is_complete: Mapped[bool] = mapped_column(Boolean, default=False)
+    squiggle_id: Mapped[Optional[int]] = mapped_column(Integer, unique=True)
+
+
+class TeamDVP(Base):
+    """Difficulty vs Position: points conceded by a team to each position.
+
+    dvp_rank 1 = hardest (fewest points conceded), 18 = easiest (most conceded).
+    Computed from SupercoachScore + Fixture data.
+    """
+
+    __tablename__ = "team_dvp"
+    __table_args__ = (
+        UniqueConstraint("season", "round", "team", "position", name="uq_dvp"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    season: Mapped[int] = mapped_column(Integer)
+    round: Mapped[int] = mapped_column(Integer)
+    team: Mapped[str] = mapped_column(String(50), index=True)
+    position: Mapped[str] = mapped_column(String(10))
+    avg_points_conceded: Mapped[Optional[float]] = mapped_column(Float)
+    dvp_rank: Mapped[Optional[int]] = mapped_column(Integer)
+
+
+class PlayerProjection(Base):
+    """Projected score for a player in a given round."""
+
+    __tablename__ = "player_projections"
+    __table_args__ = (
+        UniqueConstraint("player_id", "season", "round", name="uq_projection"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    player_id: Mapped[int] = mapped_column(ForeignKey("players.id"), index=True)
+    season: Mapped[int] = mapped_column(Integer)
+    round: Mapped[int] = mapped_column(Integer)
+    projected_score: Mapped[Optional[float]] = mapped_column(Float)
+    floor: Mapped[Optional[float]] = mapped_column(Float)
+    ceiling: Mapped[Optional[float]] = mapped_column(Float)
+    dvp_adjustment: Mapped[Optional[float]] = mapped_column(Float)
+    confidence: Mapped[Optional[float]] = mapped_column(Float)
+    method: Mapped[Optional[str]] = mapped_column(String(50))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    player: Mapped["Player"] = relationship(back_populates="projections")
 
 
 # --- Engine and session management ---
