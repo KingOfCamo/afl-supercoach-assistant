@@ -390,6 +390,69 @@ def import_dfs_australia(
     console.print(f"[green]Done! Imported {count} players from DFS Australia.[/green]")
 
 
+@import_app.command("player-list")
+def import_player_list(
+    file: str = typer.Argument(..., help="Path to player list CSV (PLAYER,TEAM columns)"),
+) -> None:
+    """Sync player names and teams from a CSV player list.
+
+    Updates existing player teams, adds missing players, and
+    normalises inconsistent team names (e.g. 'Blues' -> 'Carlton').
+    """
+    from src.importers.player_list import sync_player_list
+
+    _setup_logging()
+
+    path = Path(file)
+    if not path.exists():
+        console.print(f"[red]File not found: {file}[/red]")
+        raise typer.Exit(1)
+
+    with console.status("[bold]Syncing player list...[/bold]"):
+        result = sync_player_list(str(path))
+
+    console.print(f"\n[bold cyan]Player List Sync Complete[/bold cyan]")
+    console.print(f"  CSV players:        {result['csv_total']}")
+    console.print(f"  Teams normalised:   {result['teams_normalised']}")
+    console.print(f"  Players updated:    [green]{result['updated']}[/green]")
+    console.print(f"  Players created:    [green]{result['created']}[/green]")
+    console.print(f"  Players deactivated: [yellow]{result['deactivated']}[/yellow]")
+    console.print()
+    console.print("[green]Done![/green] All players now match your 2026 list.")
+
+
+@import_app.command("supercoach")
+def import_supercoach_api(
+    season: int = typer.Option(
+        2026, "--season", "-s", help="Season year (default: 2026)"
+    ),
+) -> None:
+    """Sync players from the official SuperCoach API.
+
+    Fetches all players from supercoach.heraldsun.com.au with correct
+    names, teams, and positions. This is the most accurate data source.
+    """
+    from src.importers.supercoach_api import sync_from_supercoach_api
+
+    _setup_logging()
+
+    with console.status("[bold]Fetching players from SuperCoach API...[/bold]"):
+        result = sync_from_supercoach_api(season=season)
+
+    console.print(f"\n[bold cyan]SuperCoach API Sync Complete[/bold cyan]")
+    console.print(f"  API players:      {result['api_total']}")
+    console.print(f"  Players updated:  [green]{result['updated']}[/green]")
+    console.print(f"  Players created:  [green]{result['created']}[/green]")
+    console.print(f"  Deactivated:      [yellow]{result['deactivated']}[/yellow]")
+
+    if result["name_corrections"]:
+        console.print(f"\n[bold]Name corrections ({len(result['name_corrections'])}):[/bold]")
+        for correction in result["name_corrections"]:
+            console.print(f"  [yellow]{correction}[/yellow]")
+
+    console.print(f"\n[green]Done![/green] All players synced from SuperCoach.")
+
+
 # --- Player command ---
 
 
