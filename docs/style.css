@@ -1152,9 +1152,187 @@ select.input {
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
+/* ——— Salary Cap Bar ——— */
+.salary-cap-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: auto;
+    min-width: 220px;
+}
+.salary-cap-track {
+    flex: 1;
+    height: 8px;
+    background: var(--bg-input);
+    border-radius: 4px;
+    overflow: hidden;
+}
+.salary-cap-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.4s ease, background 0.4s ease;
+    background: var(--accent-green);
+    width: 0%;
+}
+.salary-cap-fill.cap-warn { background: var(--accent-yellow); }
+.salary-cap-fill.cap-over { background: var(--accent-red); }
+.salary-cap-label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+/* ——— Empty Slot Placeholder Cards ——— */
+.field-card-empty {
+    width: 112px;
+    padding: 8px 6px;
+    border-radius: 8px;
+    border: 2px dashed var(--border-hover);
+    background: transparent;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    min-height: 72px;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+}
+.field-card-empty:hover {
+    border-color: var(--sc-gold);
+    background: rgba(196, 162, 60, 0.08);
+}
+.field-card-empty .empty-plus {
+    font-size: 22px;
+    color: var(--text-muted);
+    line-height: 1;
+}
+.field-card-empty:hover .empty-plus {
+    color: var(--sc-gold);
+}
+.field-card-empty .empty-label {
+    font-size: 9px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.bench-card-empty {
+    padding: 8px 6px;
+    border-radius: 6px;
+    border: 2px dashed var(--border-hover);
+    background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 40px;
+    cursor: pointer;
+    margin-bottom: 4px;
+    transition: border-color 0.2s, background 0.2s;
+}
+.bench-card-empty:hover {
+    border-color: var(--sc-gold);
+    background: rgba(196, 162, 60, 0.08);
+}
+.bench-card-empty .empty-plus {
+    font-size: 16px;
+    color: var(--text-muted);
+}
+.bench-card-empty:hover .empty-plus {
+    color: var(--sc-gold);
+}
+.bench-card-empty .empty-label {
+    font-size: 9px;
+    color: var(--text-muted);
+}
+
+/* ——— Remove Button on Cards ——— */
+.fc-remove {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--accent-red);
+    color: white;
+    font-size: 11px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    z-index: 5;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+    padding: 0;
+}
+.field-card { position: relative; }
+.bench-card { position: relative; }
+.field-card:hover .fc-remove,
+.bench-card:hover .fc-remove {
+    display: flex;
+}
+
+/* ——— Card Context Menu ——— */
+.fc-context-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background: var(--bg-card);
+    border: 1px solid var(--border-hover);
+    border-radius: 6px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+    z-index: 20;
+    min-width: 130px;
+    overflow: hidden;
+}
+.fc-context-item {
+    padding: 8px 12px;
+    font-size: 12px;
+    color: var(--text-primary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+.fc-context-item:hover {
+    background: var(--accent-blue);
+    color: white;
+}
+.fc-context-item.danger { color: var(--accent-red); }
+.fc-context-item.danger:hover { background: var(--accent-red); color: white; }
+
+/* ——— Affordable / Over-budget Highlighting in Search ——— */
+.salary-affordable { color: var(--accent-green); }
+.salary-over { color: var(--text-muted); opacity: 0.5; }
+
+/* ——— Pending Slot Indicator ——— */
+.pending-slot-banner {
+    padding: 8px 12px;
+    background: rgba(196, 162, 60, 0.15);
+    border-bottom: 1px solid var(--sc-gold-dark);
+    font-size: 12px;
+    color: var(--sc-gold);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.pending-slot-banner button {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 14px;
+}
+.pending-slot-banner button:hover { color: var(--text-primary); }
+
 /* Responsive — narrower cards on small screens */
 @media (max-width: 1200px) {
-    .field-card {
+    .field-card, .field-card-empty {
         width: 95px;
     }
     .field-card .fc-name {

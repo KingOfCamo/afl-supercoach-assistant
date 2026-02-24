@@ -159,6 +159,9 @@ const App = {
         _openDropdown: null,
         _currentView: 'field',
         _lastTeamData: null,
+        _pendingSlot: null,
+        _contextMenu: null,
+        SALARY_CAP: 10000000,
 
         switchView(view) {
             this._currentView = view;
@@ -176,9 +179,20 @@ const App = {
         async searchPlayers(query) {
             const container = document.getElementById('search-results');
             if (!query || query.length < 2) {
-                container.innerHTML = '<div class="empty-state">Type at least 2 characters to search</div>';
+                let hint = '<div class="empty-state">Type at least 2 characters to search</div>';
+                if (this._pendingSlot) {
+                    hint = `<div class="pending-slot-banner">
+                        Adding to <strong>${this._pendingSlot}</strong>
+                        <button onclick="App.Team.clearPendingSlot()" title="Cancel">&times;</button>
+                    </div>` + hint;
+                }
+                container.innerHTML = hint;
                 return;
             }
+
+            // Calculate remaining salary budget
+            const salaryUsed = (this._lastTeamData && this._lastTeamData.salary_total) || 0;
+            const remaining = this.SALARY_CAP - salaryUsed;
 
             try {
                 const res = await authFetch(`${API_BASE}/api/players/search?q=${encodeURIComponent(query)}&limit=30`);
@@ -189,22 +203,50 @@ const App = {
                     return;
                 }
 
-                let html = '<table class="data-table"><thead><tr>';
+                let html = '';
+
+                // Show pending slot banner if active
+                if (this._pendingSlot) {
+                    html += `<div class="pending-slot-banner">
+                        Adding to <strong>${this._pendingSlot}</strong>
+                        <button onclick="App.Team.clearPendingSlot()" title="Cancel">&times;</button>
+                    </div>`;
+                }
+
+                html += '<table class="data-table"><thead><tr>';
                 html += '<th>Player</th><th>Team</th><th>Pos</th><th class="right">Salary</th><th class="right">Avg</th><th></th>';
                 html += '</tr></thead><tbody>';
 
                 for (const p of data.players) {
+                    // Salary with affordability highlighting
+                    const affordable = !p.salary || p.salary <= remaining;
+                    const salaryClass = p.salary ? (affordable ? 'salary-affordable' : 'salary-over') : '';
                     const salaryStr = p.salary ? `$${p.salary.toLocaleString()}` : '-';
                     const avgStr = p.sc_avg ? p.sc_avg.toFixed(0) : '-';
-                    const btnHtml = p.is_on_team
-                        ? '<span style="color:var(--accent-green);">&#10003;</span>'
-                        : `<div class="slot-picker"><button class="btn btn-sm btn-success" onclick="App.Team.showSlotPicker(${p.id}, '${p.position || ''}', this)">+ Add</button></div>`;
+
+                    let btnHtml;
+                    if (p.is_on_team) {
+                        btnHtml = '<span style="color:var(--accent-green);">&#10003;</span>';
+                    } else if (this._pendingSlot) {
+                        // Direct add to pending slot
+                        btnHtml = `<button class="btn btn-sm btn-success" onclick="App.Team.addPlayer(${p.id}, '${this._pendingSlot}')">+ ${this._pendingSlot}</button>`;
+                    } else {
+                        // Auto-assign with dropdown fallback
+                        const autoSlot = this.autoAssignSlot(p.position || '');
+                        const autoLabel = autoSlot ? autoSlot : 'Full';
+                        btnHtml = `<div class="slot-picker" style="display:flex;gap:2px;">`;
+                        if (autoSlot) {
+                            btnHtml += `<button class="btn btn-sm btn-success" onclick="App.Team.addPlayer(${p.id}, '${autoSlot}')" title="Auto: ${autoSlot}">+ Add</button>`;
+                        }
+                        btnHtml += `<button class="btn btn-sm" onclick="App.Team.showSlotPicker(${p.id}, '${p.position || ''}', this)" title="Pick slot" style="padding:2px 5px;">&#9660;</button>`;
+                        btnHtml += `</div>`;
+                    }
 
                     html += `<tr>`;
                     html += `<td>${this._esc(p.name)}</td>`;
                     html += `<td class="muted">${this._esc(p.team)}</td>`;
                     html += `<td class="muted">${this._esc(p.position || '-')}</td>`;
-                    html += `<td class="right">${salaryStr}</td>`;
+                    html += `<td class="right ${salaryClass}">${salaryStr}</td>`;
                     html += `<td class="right">${avgStr}</td>`;
                     html += `<td class="right">${btnHtml}</td>`;
                     html += `</tr>`;
@@ -267,8 +309,97 @@ const App = {
             }
         },
 
+        // --- Auto-assign: find first empty slot matching position ---
+        autoAssignSlot(position) {
+            const occupied = new Set();
+            if (this._lastTeamData && this._lastTeamData.slots) {
+                for (const s of this._lastTeamData.slots) occupied.add(s.position_slot);
+            }
+
+            const slotGroups = {
+                'DEF': Array.from({length: 6}, (_, i) => `DEF${i+1}`),
+                'MID': Array.from({length: 8}, (_, i) => `MID${i+1}`),
+                'RUC': ['RUC1', 'RUC2'],
+                'FWD': Array.from({length: 6}, (_, i) => `FWD${i+1}`),
+            };
+
+            // Try each position the player can play (e.g. "DEF/MID")
+            const posKeys = (position || '').split('/').map(p => p.trim().toUpperCase());
+            for (const posKey of posKeys) {
+                if (slotGroups[posKey]) {
+                    for (const slot of slotGroups[posKey]) {
+                        if (!occupied.has(slot)) return slot;
+                    }
+                }
+            }
+
+            // Fall back to BENCH
+            for (let i = 1; i <= 8; i++) {
+                if (!occupied.has(`BENCH${i}`)) return `BENCH${i}`;
+            }
+
+            // Fall back to FLEX
+            if (!occupied.has('FLEX1')) return 'FLEX1';
+
+            return null; // Team is full
+        },
+
+        // --- Pending slot (clicked from empty card on field view) ---
+        setPendingSlot(slot) {
+            this._pendingSlot = slot;
+            const searchInput = document.getElementById('player-search');
+            searchInput.focus();
+            searchInput.value = '';
+            // Show pending banner
+            const container = document.getElementById('search-results');
+            container.innerHTML = `<div class="pending-slot-banner">
+                Adding to <strong>${slot}</strong>
+                <button onclick="App.Team.clearPendingSlot()" title="Cancel">&times;</button>
+            </div>
+            <div class="empty-state">Type a player name to search</div>`;
+        },
+
+        clearPendingSlot() {
+            this._pendingSlot = null;
+            const container = document.getElementById('search-results');
+            container.innerHTML = '<div class="empty-state">Type a player name to search</div>';
+        },
+
+        // --- Context menu on card right-click ---
+        showCardMenu(event, slotId, playerId) {
+            event.preventDefault();
+            event.stopPropagation();
+            this.closeCardMenu();
+
+            const card = event.currentTarget;
+            let html = '<div class="fc-context-menu">';
+            html += `<div class="fc-context-item" onclick="App.Team.setCaptain(${playerId})">&#128081; Set Captain</div>`;
+            html += `<div class="fc-context-item" onclick="App.Team.setVC(${playerId})">&#127775; Set Vice Captain</div>`;
+            html += `<div class="fc-context-item danger" onclick="App.Team.removePlayer(${slotId})">&#10060; Remove</div>`;
+            html += '</div>';
+            card.insertAdjacentHTML('beforeend', html);
+            this._contextMenu = card.querySelector('.fc-context-menu');
+
+            setTimeout(() => {
+                document.addEventListener('click', this._contextCloseHandler = () => {
+                    this.closeCardMenu();
+                }, {once: true});
+            }, 0);
+        },
+
+        closeCardMenu() {
+            if (this._contextMenu) {
+                this._contextMenu.remove();
+                this._contextMenu = null;
+            }
+        },
+
         async addPlayer(playerId, slot) {
             this.closeDropdowns();
+            if (!slot) {
+                alert('No available slot for this player');
+                return;
+            }
             try {
                 const res = await authFetch(`${API_BASE}/api/team/slot`, {
                     method: 'POST',
@@ -280,6 +411,7 @@ const App = {
                     alert(data.detail || 'Failed to add player');
                     return;
                 }
+                this._pendingSlot = null;
                 this.loadTeam();
                 // Refresh search to update "on team" flags
                 const q = document.getElementById('player-search').value;
@@ -387,6 +519,30 @@ const App = {
                 : '$0';
 
             this._lastTeamData = data;
+
+            // Update salary cap bar
+            const used = data.salary_total || 0;
+            const pct = Math.min((used / this.SALARY_CAP) * 100, 100);
+            const remaining = this.SALARY_CAP - used;
+            const fill = document.getElementById('salary-cap-fill');
+            const label = document.getElementById('salary-cap-label');
+
+            if (fill) {
+                fill.style.width = pct + '%';
+                fill.className = 'salary-cap-fill';
+                if (pct > 95 || remaining < 0) fill.classList.add('cap-over');
+                else if (pct > 80) fill.classList.add('cap-warn');
+            }
+            if (label) {
+                if (remaining < 0) {
+                    label.textContent = `Over cap by $${Math.abs(remaining).toLocaleString()}`;
+                    label.style.color = 'var(--accent-red)';
+                } else {
+                    label.textContent = `Remaining: $${remaining.toLocaleString()}`;
+                    label.style.color = '';
+                }
+            }
+
             this._renderListView(data);
             this._renderFieldView(data);
         },
@@ -439,72 +595,96 @@ const App = {
         _renderFieldView(data) {
             const container = document.getElementById('field-view');
 
-            if (!data.slots.length) {
-                container.innerHTML = '<div class="empty-state">No team loaded yet. Search and add players, or import a CSV.</div>';
-                return;
-            }
-
-            // Group slots
-            const groups = { DEF: [], MID: [], RUC: [], FWD: [], FLEX: [], BENCH: [] };
+            // Build occupied slot map
+            const occupied = {};
             for (const s of data.slots) {
-                const prefix = s.position_slot.replace(/\d+$/, '');
-                if (groups[prefix]) groups[prefix].push(s);
-                else groups['BENCH'].push(s);
+                occupied[s.position_slot] = s;
             }
 
-            // Split midfielders into two rows for better layout (top 4 + bottom 4)
-            const midTop = groups.MID.slice(0, Math.ceil(groups.MID.length / 2));
-            const midBot = groups.MID.slice(Math.ceil(groups.MID.length / 2));
+            // Define all slot positions
+            const allSlots = {
+                DEF: Array.from({length: 6}, (_, i) => `DEF${i+1}`),
+                MID: Array.from({length: 8}, (_, i) => `MID${i+1}`),
+                RUC: ['RUC1', 'RUC2'],
+                FWD: Array.from({length: 6}, (_, i) => `FWD${i+1}`),
+                FLEX: ['FLEX1'],
+                BENCH: Array.from({length: 8}, (_, i) => `BENCH${i+1}`),
+            };
+
+            // Helper: render cards for a group (filled + empty placeholders)
+            const renderZoneCards = (slotNames) => {
+                let cards = '';
+                for (const slotName of slotNames) {
+                    if (occupied[slotName]) {
+                        cards += this._renderFieldCard(occupied[slotName]);
+                    } else {
+                        cards += `<div class="field-card-empty" onclick="App.Team.setPendingSlot('${slotName}')">
+                            <span class="empty-plus">+</span>
+                            <span class="empty-label">${slotName}</span>
+                        </div>`;
+                    }
+                }
+                return cards;
+            };
+
+            const renderBenchCards = (slotNames) => {
+                let cards = '';
+                for (const slotName of slotNames) {
+                    if (occupied[slotName]) {
+                        cards += this._renderBenchCard(occupied[slotName]);
+                    } else {
+                        cards += `<div class="bench-card-empty" onclick="App.Team.setPendingSlot('${slotName}')">
+                            <span class="empty-plus">+</span>
+                            <span class="empty-label">${slotName}</span>
+                        </div>`;
+                    }
+                }
+                return cards;
+            };
 
             let html = '<div class="field-view-wrapper">';
             html += '<div class="field-pitch">';
             html += '<div class="field-centre-circle"></div>';
             html += '<div class="field-centre-line"></div>';
 
-            // DEF zone (top of pitch)
+            // DEF zone
             html += '<div class="field-zone">';
             html += '<div class="field-zone-label">Defenders</div>';
             html += '<div class="field-zone-cards">';
-            for (const s of groups.DEF) html += this._renderFieldCard(s);
+            html += renderZoneCards(allSlots.DEF);
             html += '</div></div>';
 
             // MID zone — split into two rows
             html += '<div class="field-zone">';
             html += '<div class="field-zone-label">Midfielders</div>';
-            if (midTop.length) {
-                html += '<div class="field-zone-cards">';
-                for (const s of midTop) html += this._renderFieldCard(s);
-                html += '</div>';
-            }
-            if (midBot.length) {
-                html += '<div class="field-zone-cards">';
-                for (const s of midBot) html += this._renderFieldCard(s);
-                html += '</div>';
-            }
+            html += '<div class="field-zone-cards">';
+            html += renderZoneCards(allSlots.MID.slice(0, 4));
+            html += '</div>';
+            html += '<div class="field-zone-cards">';
+            html += renderZoneCards(allSlots.MID.slice(4));
+            html += '</div>';
             html += '</div>';
 
             // RUC zone
             html += '<div class="field-zone">';
             html += '<div class="field-zone-label">Rucks</div>';
             html += '<div class="field-zone-cards">';
-            for (const s of groups.RUC) html += this._renderFieldCard(s);
+            html += renderZoneCards(allSlots.RUC);
             html += '</div></div>';
 
             // FWD zone
             html += '<div class="field-zone">';
             html += '<div class="field-zone-label">Forwards</div>';
             html += '<div class="field-zone-cards">';
-            for (const s of groups.FWD) html += this._renderFieldCard(s);
+            html += renderZoneCards(allSlots.FWD);
             html += '</div></div>';
 
             // FLEX zone
-            if (groups.FLEX.length) {
-                html += '<div class="field-zone">';
-                html += '<div class="field-zone-label">Flex</div>';
-                html += '<div class="field-zone-cards">';
-                for (const s of groups.FLEX) html += this._renderFieldCard(s);
-                html += '</div></div>';
-            }
+            html += '<div class="field-zone">';
+            html += '<div class="field-zone-label">Flex</div>';
+            html += '<div class="field-zone-cards">';
+            html += renderZoneCards(allSlots.FLEX);
+            html += '</div></div>';
 
             html += '</div>'; // .field-pitch
 
@@ -513,10 +693,7 @@ const App = {
             html += '<div class="field-bench-header">';
             html += '<span class="field-bench-title">Bench</span>';
             html += '</div>';
-            for (const s of groups.BENCH) html += this._renderBenchCard(s);
-            if (!groups.BENCH.length) {
-                html += '<div style="text-align:center;color:var(--text-muted);font-size:10px;padding:12px">No bench players</div>';
-            }
+            html += renderBenchCards(allSlots.BENCH);
             html += '</div>'; // .field-bench
 
             html += '</div>'; // .field-view-wrapper
@@ -531,7 +708,10 @@ const App = {
             const displayName = this._abbreviateName(s.player_name);
             const posLabel = s.position ? s.position.replace('/', ' | ') : '';
 
-            let html = `<div class="field-card" style="border-left-color:${teamColor}">`;
+            let html = `<div class="field-card" style="border-left-color:${teamColor}" oncontextmenu="App.Team.showCardMenu(event, ${s.id}, ${s.player_id})">`;
+
+            // Remove button (top-right, shown on hover)
+            html += `<button class="fc-remove" onclick="event.stopPropagation();App.Team.removePlayer(${s.id})" title="Remove">&times;</button>`;
 
             if (s.is_captain) {
                 html += '<div class="fc-badge fc-badge-c">C</div>';
@@ -557,7 +737,10 @@ const App = {
             const score = s.last_score != null ? s.last_score : (s.sc_avg != null ? s.sc_avg : 0);
             const displayName = this._abbreviateName(s.player_name);
 
-            let html = `<div class="bench-card" style="border-left-color:${teamColor}">`;
+            let html = `<div class="bench-card" style="border-left-color:${teamColor}" oncontextmenu="App.Team.showCardMenu(event, ${s.id}, ${s.player_id})">`;
+
+            // Remove button (top-right, shown on hover)
+            html += `<button class="fc-remove" onclick="event.stopPropagation();App.Team.removePlayer(${s.id})" title="Remove">&times;</button>`;
 
             if (s.is_emergency) {
                 html += '<div class="fc-emg">E</div>';
