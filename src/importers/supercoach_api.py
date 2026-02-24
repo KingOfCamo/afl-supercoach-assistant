@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 API_URL = (
     "https://supercoach.heraldsun.com.au/{season}/api/afl/classic/v1/"
-    "players-cf?round=0&embed=stats,prices,positions"
+    "players-cf?round=0&embed=player_stats,positions"
 )
 
 # SuperCoach team abbreviations -> our standard names
@@ -145,6 +145,16 @@ def sync_from_supercoach_api(season: int = 2026) -> dict:
             sc_prev_avg = sc_p.get("previous_average")
             sc_prev_games = sc_p.get("previous_games")
 
+            # Extract real starting price from player_stats embed
+            sc_price = None
+            player_stats = sc_p.get("player_stats", [])
+            if player_stats and isinstance(player_stats, list):
+                # Round 0 stats contain the starting price
+                for ps in player_stats:
+                    if ps.get("price"):
+                        sc_price = ps["price"]
+                        break
+
             # Try to match existing player
             matched = None
 
@@ -222,13 +232,10 @@ def sync_from_supercoach_api(season: int = 2026) -> dict:
                     dfs.games_played = sc_prev_games
                     changed = True
 
-                # Calculate starting price from average if salary missing
-                # SuperCoach price formula: avg * 5415 (approx multiplier)
-                if sc_prev_avg and (not dfs.salary or dfs.salary == 119900):
-                    calc_price = int(round(sc_prev_avg * 5415 / 100) * 100)
-                    if calc_price > 119900:
-                        dfs.salary = calc_price
-                        changed = True
+                # Use real starting price from API
+                if sc_price and (not dfs.salary or dfs.salary != sc_price):
+                    dfs.salary = sc_price
+                    changed = True
 
                 if changed:
                     updated += 1
@@ -245,13 +252,14 @@ def sync_from_supercoach_api(season: int = 2026) -> dict:
                 sc_player_ids.add(new_player.id)
                 created += 1
 
-                # Create DFS stats stub with previous season data
-                if sc_prev_avg or sc_prev_games:
+                # Create DFS stats stub with previous season data and price
+                if sc_prev_avg or sc_prev_games or sc_price:
                     dfs = DfsPlayerStats(
                         player_id=new_player.id,
                         season=season,
                         sc_avg=sc_prev_avg,
                         games_played=sc_prev_games,
+                        salary=sc_price,
                     )
                     session.add(dfs)
 
