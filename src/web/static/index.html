@@ -37,10 +37,12 @@
                 <a class="nav-item" data-section="dashboard" onclick="App.showSection('dashboard')">&#128202; Dashboard</a>
                 <a class="nav-item" data-section="ai" onclick="App.showSection('ai')">&#128172; AI Insights</a>
             </nav>
+            <div class="sidebar-user" id="sidebar-user"></div>
             <div class="connection-indicator" id="connection-status">
                 <span class="dot disconnected" id="connection-dot"></span>
                 <span id="connection-text">Connecting...</span>
             </div>
+            <a class="nav-item" onclick="logout()" style="color:var(--accent-red);border-top:1px solid var(--border);">Logout</a>
         </aside>
 
         <!-- Main content -->
@@ -84,9 +86,14 @@
                         <div class="panel">
                             <div class="panel-header">
                                 <h3>My Team</h3>
+                                <div class="team-view-tabs">
+                                    <button class="team-view-tab active" data-view="field" onclick="App.Team.switchView('field')">FIELD</button>
+                                    <button class="team-view-tab" data-view="list" onclick="App.Team.switchView('list')">LIST</button>
+                                </div>
                             </div>
                             <div class="panel-body" id="team-display">
-                                <div class="empty-state">No team loaded yet. Search and add players, or import a CSV.</div>
+                                <div id="field-view" class="team-view active"></div>
+                                <div id="list-view" class="team-view"></div>
                             </div>
                         </div>
                     </div>

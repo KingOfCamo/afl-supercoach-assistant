@@ -38,6 +38,11 @@ class DatabaseConfig:
 
     @property
     def url(self) -> str:
+        # Railway injects DATABASE_URL for PostgreSQL
+        env_url = os.environ.get("DATABASE_URL")
+        if env_url:
+            # Railway uses postgres:// but SQLAlchemy needs postgresql://
+            return env_url.replace("postgres://", "postgresql://", 1)
         return f"sqlite:///{self.path}"
 
 

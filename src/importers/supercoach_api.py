@@ -196,6 +196,40 @@ def sync_from_supercoach_api(season: int = 2026) -> dict:
                     matched.is_active = True
                     changed = True
 
+                # Update DFS stats with SuperCoach API data
+                dfs = session.execute(
+                    select(DfsPlayerStats).where(
+                        DfsPlayerStats.player_id == matched.id,
+                        DfsPlayerStats.season == season,
+                    )
+                ).scalar_one_or_none()
+
+                if dfs is None:
+                    # No DFS record at all — create one
+                    dfs = DfsPlayerStats(
+                        player_id=matched.id,
+                        season=season,
+                    )
+                    session.add(dfs)
+
+                # Update SC avg from API if we don't have one
+                if sc_prev_avg and not dfs.sc_avg:
+                    dfs.sc_avg = sc_prev_avg
+                    changed = True
+
+                # Update games if missing
+                if sc_prev_games and not dfs.games_played:
+                    dfs.games_played = sc_prev_games
+                    changed = True
+
+                # Calculate starting price from average if salary missing
+                # SuperCoach price formula: avg * 5415 (approx multiplier)
+                if sc_prev_avg and (not dfs.salary or dfs.salary == 119900):
+                    calc_price = int(round(sc_prev_avg * 5415 / 100) * 100)
+                    if calc_price > 119900:
+                        dfs.salary = calc_price
+                        changed = True
+
                 if changed:
                     updated += 1
             else:

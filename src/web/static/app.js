@@ -6,6 +6,83 @@ const API_BASE = window.location.hostname.includes('github.io')
     ? 'http://127.0.0.1:8000'
     : '';
 
+// AFL team primary colours (for card left-border accents)
+const TEAM_COLORS = {
+    'Adelaide':          '#002b5c',
+    'Brisbane':          '#7b0039',
+    'Carlton':           '#002b5c',
+    'Collingwood':       '#111111',
+    'Essendon':          '#cc0000',
+    'Fremantle':         '#7b2d8b',
+    'Geelong':           '#002b5c',
+    'Gold Coast':        '#d4a843',
+    'GWS':               '#f47920',
+    'Hawthorn':          '#4d2004',
+    'Melbourne':         '#002b5c',
+    'North Melbourne':   '#003ea1',
+    'Port Adelaide':     '#008aab',
+    'Richmond':          '#ffd200',
+    'St Kilda':          '#ed1c24',
+    'Sydney':            '#ed171f',
+    'West Coast':        '#002b5c',
+    'Western Bulldogs':  '#014896',
+};
+
+// Full team name -> 3-letter abbreviation
+const TEAM_ABBREVS = {
+    'Adelaide':          'ADE',
+    'Brisbane':          'BRL',
+    'Carlton':           'CAR',
+    'Collingwood':       'COL',
+    'Essendon':          'ESS',
+    'Fremantle':         'FRE',
+    'Geelong':           'GEE',
+    'Gold Coast':        'GCS',
+    'GWS':               'GWS',
+    'Hawthorn':          'HAW',
+    'Melbourne':         'MEL',
+    'North Melbourne':   'NTH',
+    'Port Adelaide':     'PTA',
+    'Richmond':          'RIC',
+    'St Kilda':          'STK',
+    'Sydney':            'SYD',
+    'West Coast':        'WCE',
+    'Western Bulldogs':  'WBD',
+};
+
+// --- Auth helpers ---
+
+function getToken() {
+    return localStorage.getItem('sc_token');
+}
+
+function authFetch(url, opts = {}) {
+    const token = getToken();
+    if (!token) {
+        window.location.href = '/login';
+        return Promise.reject(new Error('Not authenticated'));
+    }
+    opts.headers = {
+        ...(opts.headers || {}),
+        'Authorization': `Bearer ${token}`,
+    };
+    return fetch(url, opts).then(res => {
+        if (res.status === 401) {
+            localStorage.removeItem('sc_token');
+            localStorage.removeItem('sc_user');
+            window.location.href = '/login';
+            throw new Error('Session expired');
+        }
+        return res;
+    });
+}
+
+function logout() {
+    localStorage.removeItem('sc_token');
+    localStorage.removeItem('sc_user');
+    window.location.href = '/login';
+}
+
 const App = {
     state: {
         config: null,
@@ -14,8 +91,12 @@ const App = {
     },
 
     async init() {
+        // Redirect to login if no token
+        if (!getToken()) {
+            window.location.href = '/login';
+            return;
+        }
         this.checkConnection();
-        // Check connection periodically
         setInterval(() => this.checkConnection(), 15000);
     },
 
@@ -26,7 +107,7 @@ const App = {
         const overlay = document.getElementById('connection-overlay');
 
         try {
-            const res = await fetch(`${API_BASE}/api/config`, {signal: AbortSignal.timeout(3000)});
+            const res = await authFetch(`${API_BASE}/api/config`, {signal: AbortSignal.timeout(3000)});
             this.state.config = await res.json();
             this.state.connected = true;
 
@@ -76,6 +157,16 @@ const App = {
     Team: {
         _searchTimeout: null,
         _openDropdown: null,
+        _currentView: 'field',
+        _lastTeamData: null,
+
+        switchView(view) {
+            this._currentView = view;
+            document.querySelectorAll('.team-view-tab').forEach(el => el.classList.remove('active'));
+            document.querySelector(`.team-view-tab[data-view="${view}"]`).classList.add('active');
+            document.querySelectorAll('.team-view').forEach(el => el.classList.remove('active'));
+            document.getElementById(`${view}-view`).classList.add('active');
+        },
 
         debounceSearch(query) {
             clearTimeout(this._searchTimeout);
@@ -90,7 +181,7 @@ const App = {
             }
 
             try {
-                const res = await fetch(`${API_BASE}/api/players/search?q=${encodeURIComponent(query)}&limit=30`);
+                const res = await authFetch(`${API_BASE}/api/players/search?q=${encodeURIComponent(query)}&limit=30`);
                 const data = await res.json();
 
                 if (!data.players.length) {
@@ -179,7 +270,7 @@ const App = {
         async addPlayer(playerId, slot) {
             this.closeDropdowns();
             try {
-                const res = await fetch(`${API_BASE}/api/team/slot`, {
+                const res = await authFetch(`${API_BASE}/api/team/slot`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({player_id: playerId, position_slot: slot}),
@@ -200,7 +291,7 @@ const App = {
 
         async removePlayer(slotId) {
             try {
-                await fetch(`${API_BASE}/api/team/slot/${slotId}`, {method: 'DELETE'});
+                await authFetch(`${API_BASE}/api/team/slot/${slotId}`, {method: 'DELETE'});
                 this.loadTeam();
                 const q = document.getElementById('player-search').value;
                 if (q) this.searchPlayers(q);
@@ -211,7 +302,7 @@ const App = {
 
         async setCaptain(playerId) {
             try {
-                await fetch(`${API_BASE}/api/team/captain`, {
+                await authFetch(`${API_BASE}/api/team/captain`, {
                     method: 'PUT',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({captain_id: playerId}),
@@ -224,7 +315,7 @@ const App = {
 
         async setVC(playerId) {
             // Find current captain
-            const res = await fetch(`${API_BASE}/api/team`);
+            const res = await authFetch(`${API_BASE}/api/team`);
             const data = await res.json();
             const captain = data.slots.find(s => s.is_captain);
             if (!captain) {
@@ -232,7 +323,7 @@ const App = {
                 return;
             }
             try {
-                await fetch(`${API_BASE}/api/team/captain`, {
+                await authFetch(`${API_BASE}/api/team/captain`, {
                     method: 'PUT',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({captain_id: captain.player_id, vice_captain_id: playerId}),
@@ -246,7 +337,7 @@ const App = {
         async clearTeam() {
             if (!confirm('Clear your entire team?')) return;
             try {
-                await fetch(`${API_BASE}/api/team/clear`, {method: 'POST'});
+                await authFetch(`${API_BASE}/api/team/clear`, {method: 'POST'});
                 this.loadTeam();
                 const q = document.getElementById('player-search').value;
                 if (q) this.searchPlayers(q);
@@ -265,7 +356,7 @@ const App = {
             const form = new FormData();
             form.append('file', file);
             try {
-                const res = await fetch(`${API_BASE}/api/team/import-csv`, {method: 'POST', body: form});
+                const res = await authFetch(`${API_BASE}/api/team/import-csv`, {method: 'POST', body: form});
                 const data = await res.json();
                 if (data.success) {
                     alert(`Imported ${data.imported} players`);
@@ -281,7 +372,7 @@ const App = {
 
         async loadTeam() {
             try {
-                const res = await fetch(`${API_BASE}/api/team`);
+                const res = await authFetch(`${API_BASE}/api/team`);
                 const data = await res.json();
                 this.renderTeam(data);
             } catch (e) {
@@ -290,18 +381,23 @@ const App = {
         },
 
         renderTeam(data) {
-            const container = document.getElementById('team-display');
             document.getElementById('team-count').textContent = data.player_count;
             document.getElementById('salary-total').textContent = data.salary_total
                 ? `$${data.salary_total.toLocaleString()}`
                 : '$0';
 
+            this._lastTeamData = data;
+            this._renderListView(data);
+            this._renderFieldView(data);
+        },
+
+        _renderListView(data) {
+            const container = document.getElementById('list-view');
             if (!data.slots.length) {
                 container.innerHTML = '<div class="empty-state">No team loaded yet. Search and add players, or import a CSV.</div>';
                 return;
             }
 
-            // Group slots by position prefix
             const groups = {DEF: [], MID: [], RUC: [], FWD: [], BENCH: [], FLEX: []};
             for (const s of data.slots) {
                 const prefix = s.position_slot.replace(/\d+$/, '');
@@ -340,6 +436,156 @@ const App = {
             container.innerHTML = html;
         },
 
+        _renderFieldView(data) {
+            const container = document.getElementById('field-view');
+
+            if (!data.slots.length) {
+                container.innerHTML = '<div class="empty-state">No team loaded yet. Search and add players, or import a CSV.</div>';
+                return;
+            }
+
+            // Group slots
+            const groups = { DEF: [], MID: [], RUC: [], FWD: [], FLEX: [], BENCH: [] };
+            for (const s of data.slots) {
+                const prefix = s.position_slot.replace(/\d+$/, '');
+                if (groups[prefix]) groups[prefix].push(s);
+                else groups['BENCH'].push(s);
+            }
+
+            // Split midfielders into two rows for better layout (top 4 + bottom 4)
+            const midTop = groups.MID.slice(0, Math.ceil(groups.MID.length / 2));
+            const midBot = groups.MID.slice(Math.ceil(groups.MID.length / 2));
+
+            let html = '<div class="field-view-wrapper">';
+            html += '<div class="field-pitch">';
+            html += '<div class="field-centre-circle"></div>';
+            html += '<div class="field-centre-line"></div>';
+
+            // DEF zone (top of pitch)
+            html += '<div class="field-zone">';
+            html += '<div class="field-zone-label">Defenders</div>';
+            html += '<div class="field-zone-cards">';
+            for (const s of groups.DEF) html += this._renderFieldCard(s);
+            html += '</div></div>';
+
+            // MID zone — split into two rows
+            html += '<div class="field-zone">';
+            html += '<div class="field-zone-label">Midfielders</div>';
+            if (midTop.length) {
+                html += '<div class="field-zone-cards">';
+                for (const s of midTop) html += this._renderFieldCard(s);
+                html += '</div>';
+            }
+            if (midBot.length) {
+                html += '<div class="field-zone-cards">';
+                for (const s of midBot) html += this._renderFieldCard(s);
+                html += '</div>';
+            }
+            html += '</div>';
+
+            // RUC zone
+            html += '<div class="field-zone">';
+            html += '<div class="field-zone-label">Rucks</div>';
+            html += '<div class="field-zone-cards">';
+            for (const s of groups.RUC) html += this._renderFieldCard(s);
+            html += '</div></div>';
+
+            // FWD zone
+            html += '<div class="field-zone">';
+            html += '<div class="field-zone-label">Forwards</div>';
+            html += '<div class="field-zone-cards">';
+            for (const s of groups.FWD) html += this._renderFieldCard(s);
+            html += '</div></div>';
+
+            // FLEX zone
+            if (groups.FLEX.length) {
+                html += '<div class="field-zone">';
+                html += '<div class="field-zone-label">Flex</div>';
+                html += '<div class="field-zone-cards">';
+                for (const s of groups.FLEX) html += this._renderFieldCard(s);
+                html += '</div></div>';
+            }
+
+            html += '</div>'; // .field-pitch
+
+            // Bench sidebar
+            html += '<div class="field-bench">';
+            html += '<div class="field-bench-header">';
+            html += '<span class="field-bench-title">Bench</span>';
+            html += '</div>';
+            for (const s of groups.BENCH) html += this._renderBenchCard(s);
+            if (!groups.BENCH.length) {
+                html += '<div style="text-align:center;color:var(--text-muted);font-size:10px;padding:12px">No bench players</div>';
+            }
+            html += '</div>'; // .field-bench
+
+            html += '</div>'; // .field-view-wrapper
+            container.innerHTML = html;
+        },
+
+        _renderFieldCard(s) {
+            const teamColor = TEAM_COLORS[s.team] || '#444';
+            const teamAbbr = TEAM_ABBREVS[s.team] || (s.team || '').substring(0, 3).toUpperCase();
+            const salary = s.salary ? `$${(s.salary / 1000).toFixed(0)}k` : '';
+            const score = s.last_score != null ? s.last_score : (s.sc_avg != null ? s.sc_avg : 0);
+            const displayName = this._abbreviateName(s.player_name);
+            const posLabel = s.position ? s.position.replace('/', ' | ') : '';
+
+            let html = `<div class="field-card" style="border-left-color:${teamColor}">`;
+
+            if (s.is_captain) {
+                html += '<div class="fc-badge fc-badge-c">C</div>';
+            } else if (s.is_vice_captain) {
+                html += '<div class="fc-badge fc-badge-vc">VC</div>';
+            }
+
+            html += `<div class="fc-score">${score}</div>`;
+            html += `<div class="fc-name">${this._esc(displayName)}</div>`;
+            html += '<div class="fc-meta">';
+            html += `<span class="fc-team">${this._esc(teamAbbr)}${posLabel ? ' | ' + posLabel : ''}</span>`;
+            html += `<span class="fc-salary">${salary}</span>`;
+            html += '</div>';
+
+            html += '</div>';
+            return html;
+        },
+
+        _renderBenchCard(s) {
+            const teamColor = TEAM_COLORS[s.team] || '#444';
+            const teamAbbr = TEAM_ABBREVS[s.team] || (s.team || '').substring(0, 3).toUpperCase();
+            const salary = s.salary ? `$${(s.salary / 1000).toFixed(0)}k` : '';
+            const score = s.last_score != null ? s.last_score : (s.sc_avg != null ? s.sc_avg : 0);
+            const displayName = this._abbreviateName(s.player_name);
+
+            let html = `<div class="bench-card" style="border-left-color:${teamColor}">`;
+
+            if (s.is_emergency) {
+                html += '<div class="fc-emg">E</div>';
+            }
+
+            html += `<div class="fc-score">${score}</div>`;
+            html += `<div class="fc-name">${this._esc(displayName)}</div>`;
+            html += '<div class="fc-meta">';
+            html += `<span class="fc-team">${this._esc(teamAbbr)}</span>`;
+            html += `<span class="fc-salary">${salary}</span>`;
+            html += '</div>';
+
+            html += '</div>';
+            return html;
+        },
+
+        _abbreviateName(name) {
+            if (!name) return '';
+            const parts = name.split(' ');
+            if (parts.length < 2) return name;
+            const initial = parts[0][0];
+            let surname = parts.slice(1).join(' ');
+            if (surname.length > 13) {
+                surname = surname.substring(0, 12) + '...';
+            }
+            return `${initial}. ${surname}`;
+        },
+
         _esc(str) {
             const div = document.createElement('div');
             div.textContent = str || '';
@@ -354,10 +600,10 @@ const App = {
 
             // Fetch all analytics in parallel
             const [projRes, captRes, tradeRes, injRes] = await Promise.allSettled([
-                fetch(`${API_BASE}/api/analytics/projections?round=${round}&team_only=true`).then(r => r.json()),
-                fetch(`${API_BASE}/api/analytics/captain?round=${round}&top_n=10`).then(r => r.json()),
-                fetch(`${API_BASE}/api/analytics/trades?round=${round}`).then(r => r.json()),
-                fetch(`${API_BASE}/api/analytics/injuries`).then(r => r.json()),
+                authFetch(`${API_BASE}/api/analytics/projections?round=${round}&team_only=true`).then(r => r.json()),
+                authFetch(`${API_BASE}/api/analytics/captain?round=${round}&top_n=10`).then(r => r.json()),
+                authFetch(`${API_BASE}/api/analytics/trades?round=${round}`).then(r => r.json()),
+                authFetch(`${API_BASE}/api/analytics/injuries`).then(r => r.json()),
             ]);
 
             // Update stat cards
@@ -512,7 +758,7 @@ const App = {
             const container = document.getElementById('ai-weekly-content');
             container.innerHTML = '<div class="loading"><div class="spinner"></div><div>Asking Claude...</div></div>';
             try {
-                const res = await fetch(`${API_BASE}/api/ai/weekly`);
+                const res = await authFetch(`${API_BASE}/api/ai/weekly`);
                 const data = await res.json();
                 container.innerHTML = renderMarkdown(data.response);
             } catch (e) {
@@ -525,7 +771,7 @@ const App = {
             const round = App.state.config ? App.state.config.current_round : 1;
             container.innerHTML = '<div class="loading"><div class="spinner"></div><div>Asking Claude...</div></div>';
             try {
-                const res = await fetch(`${API_BASE}/api/ai/captain?round=${round}`);
+                const res = await authFetch(`${API_BASE}/api/ai/captain?round=${round}`);
                 const data = await res.json();
                 container.innerHTML = renderMarkdown(data.response);
             } catch (e) {
@@ -538,7 +784,7 @@ const App = {
             const round = App.state.config ? App.state.config.current_round : 1;
             container.innerHTML = '<div class="loading"><div class="spinner"></div><div>Asking Claude...</div></div>';
             try {
-                const res = await fetch(`${API_BASE}/api/ai/trades?round=${round}`);
+                const res = await authFetch(`${API_BASE}/api/ai/trades?round=${round}`);
                 const data = await res.json();
                 container.innerHTML = renderMarkdown(data.response);
             } catch (e) {
@@ -558,7 +804,7 @@ const App = {
             log.scrollTop = log.scrollHeight;
 
             try {
-                const res = await fetch(`${API_BASE}/api/ai/chat`, {
+                const res = await authFetch(`${API_BASE}/api/ai/chat`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({message: msg}),

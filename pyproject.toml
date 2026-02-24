@@ -25,6 +25,9 @@ dependencies = [
     "fastapi>=0.109",
     "uvicorn[standard]>=0.27",
     "python-multipart>=0.0.6",
+    "psycopg2-binary>=2.9",
+    "pyjwt>=2.8",
+    "bcrypt>=4.0",
 ]
 
 [project.optional-dependencies]

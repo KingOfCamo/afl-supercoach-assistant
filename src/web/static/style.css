@@ -17,6 +17,11 @@
     --border: #2d3140;
     --border-hover: #3d4256;
     --sidebar-width: 200px;
+    --sc-green: #2e7d32;
+    --sc-green-light: #43a047;
+    --sc-green-dark: #1b5e20;
+    --sc-gold: #c4a23c;
+    --sc-gold-dark: #a68932;
 }
 
 * {
@@ -802,4 +807,363 @@ select.input {
 
 ::-webkit-scrollbar-thumb:hover {
     background: var(--border-hover);
+}
+
+/* ===== FIELD VIEW ===== */
+
+/* Team view tab switcher (FIELD / LIST) */
+.team-view-tabs {
+    display: flex;
+    gap: 2px;
+    background: var(--bg-primary);
+    border-radius: 6px;
+    padding: 2px;
+}
+
+.team-view-tab {
+    padding: 4px 14px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.team-view-tab:hover {
+    color: var(--text-primary);
+}
+
+.team-view-tab.active {
+    background: var(--sc-green);
+    color: white;
+}
+
+/* View container toggle */
+.team-view {
+    display: none;
+    height: 100%;
+}
+
+.team-view.active {
+    display: block;
+}
+
+/* Remove panel padding when field view is active */
+#team-display:has(#field-view.active) {
+    padding: 0;
+}
+
+/* Field view wrapper: pitch + bench sidebar */
+.field-view-wrapper {
+    display: flex;
+    gap: 0;
+    height: 100%;
+    min-height: 620px;
+}
+
+/* The pitch — oval is decorative background, content not clipped */
+.field-pitch {
+    flex: 1;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 16px 8px;
+    min-height: 600px;
+}
+
+/* Oval background */
+.field-pitch::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse 90% 95% at 50% 50%,
+        var(--sc-green-light) 0%,
+        var(--sc-green) 45%,
+        var(--sc-green-dark) 85%,
+        rgba(15, 17, 23, 0.6) 100%);
+    border-radius: 50%;
+    z-index: 0;
+}
+
+/* Centre circle decoration */
+.field-pitch .field-centre-circle {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 70px;
+    height: 70px;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* Centre line */
+.field-pitch .field-centre-line {
+    position: absolute;
+    top: 50%;
+    left: 12%;
+    right: 12%;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.07);
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* Position zone (DEF, MID, RUC, FWD, FLEX) */
+.field-zone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    z-index: 1;
+    position: relative;
+}
+
+/* Position label pill — SuperCoach gold */
+.field-zone-label {
+    display: inline-block;
+    padding: 3px 16px;
+    background: var(--sc-gold);
+    color: #1a1a1a;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    border-radius: 12px;
+    margin-bottom: 2px;
+}
+
+/* Cards row within a zone */
+.field-zone-cards {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 5px;
+}
+
+/* Field player card */
+.field-card {
+    width: 112px;
+    background: rgba(18, 20, 28, 0.93);
+    border-radius: 6px;
+    padding: 6px 8px;
+    border-left: 3px solid #444;
+    position: relative;
+    cursor: default;
+    transition: transform 0.1s, box-shadow 0.1s;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.field-card:hover {
+    transform: scale(1.06);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    z-index: 2;
+}
+
+.field-card .fc-name {
+    font-size: 11px;
+    font-weight: 600;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.3;
+    padding-right: 20px;
+}
+
+.field-card .fc-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 2px;
+}
+
+.field-card .fc-team {
+    font-size: 9px;
+    color: rgba(255, 255, 255, 0.55);
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.field-card .fc-pos {
+    font-size: 8px;
+    color: rgba(255, 255, 255, 0.35);
+}
+
+.field-card .fc-salary {
+    font-size: 9px;
+    color: rgba(255, 255, 255, 0.55);
+}
+
+.field-card .fc-score {
+    position: absolute;
+    top: 5px;
+    right: 7px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #fff;
+}
+
+/* Captain / VC badge */
+.field-card .fc-badge {
+    position: absolute;
+    top: -5px;
+    left: -5px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    font-size: 9px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #1a1a1a;
+    z-index: 3;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.fc-badge-c {
+    background: var(--sc-gold);
+}
+
+.fc-badge-vc {
+    background: var(--accent-cyan);
+}
+
+/* Bench sidebar */
+.field-bench {
+    width: 135px;
+    background: var(--bg-card);
+    border-left: 1px solid var(--border);
+    padding: 10px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    overflow-y: auto;
+    flex-shrink: 0;
+}
+
+.field-bench-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 2px;
+}
+
+.field-bench-title {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+}
+
+.field-bench-reset {
+    padding: 2px 8px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--bg-secondary);
+    color: var(--text-muted);
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    cursor: pointer;
+}
+
+.field-bench-reset:hover {
+    border-color: var(--accent-red);
+    color: var(--accent-red);
+}
+
+/* Bench card */
+.bench-card {
+    background: var(--bg-secondary);
+    border-radius: 5px;
+    padding: 5px 7px;
+    border-left: 3px solid #444;
+    position: relative;
+    transition: transform 0.1s;
+}
+
+.bench-card:hover {
+    transform: scale(1.03);
+}
+
+.bench-card .fc-name {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding-right: 16px;
+}
+
+.bench-card .fc-meta {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 1px;
+}
+
+.bench-card .fc-team {
+    font-size: 8px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+}
+
+.bench-card .fc-salary {
+    font-size: 8px;
+    color: var(--text-muted);
+}
+
+.bench-card .fc-score {
+    position: absolute;
+    top: 4px;
+    right: 6px;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+/* Emergency badge */
+.bench-card .fc-emg {
+    position: absolute;
+    top: -3px;
+    right: -3px;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: var(--accent-green);
+    font-size: 8px;
+    font-weight: 800;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+/* Responsive — narrower cards on small screens */
+@media (max-width: 1200px) {
+    .field-card {
+        width: 95px;
+    }
+    .field-card .fc-name {
+        font-size: 10px;
+    }
+    .field-card .fc-score {
+        font-size: 10px;
+    }
+    .field-bench {
+        width: 115px;
+    }
 }

@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SuperCoach AI - Login</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: auto;
+            background: var(--bg-primary);
+        }
+
+        .login-container {
+            width: 100%;
+            max-width: 400px;
+            padding: 20px;
+        }
+
+        .login-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 36px 32px;
+        }
+
+        .login-brand {
+            text-align: center;
+            margin-bottom: 28px;
+        }
+
+        .login-brand h1 {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--sc-green-light);
+            margin-bottom: 4px;
+        }
+
+        .login-brand p {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .login-tabs {
+            display: flex;
+            gap: 2px;
+            background: var(--bg-primary);
+            border-radius: 6px;
+            padding: 2px;
+            margin-bottom: 24px;
+        }
+
+        .login-tab {
+            flex: 1;
+            padding: 8px;
+            border: none;
+            border-radius: 4px;
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .login-tab.active {
+            background: var(--sc-green);
+            color: white;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .login-btn {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 6px;
+            background: var(--sc-green);
+            color: white;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s;
+            margin-top: 8px;
+        }
+
+        .login-btn:hover {
+            background: var(--sc-green-light);
+        }
+
+        .login-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .login-error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 6px;
+            padding: 10px 14px;
+            color: var(--accent-red);
+            font-size: 13px;
+            margin-bottom: 16px;
+            display: none;
+        }
+
+        .login-footer {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        #register-fields {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-card">
+            <div class="login-brand">
+                <h1>SuperCoach AI</h1>
+                <p>AFL SuperCoach Dashboard</p>
+            </div>
+
+            <div class="login-tabs">
+                <button class="login-tab active" onclick="switchAuthTab('login')">Login</button>
+                <button class="login-tab" onclick="switchAuthTab('register')">Register</button>
+            </div>
+
+            <div class="login-error" id="auth-error"></div>
+
+            <form id="auth-form" onsubmit="handleAuth(event)">
+                <div id="register-fields">
+                    <div class="form-group">
+                        <label for="display-name">Display Name</label>
+                        <input class="input" id="display-name" type="text" placeholder="Your name">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input class="input" id="email" type="email" placeholder="you@example.com" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input class="input" id="password" type="password" placeholder="Min. 6 characters" required>
+                </div>
+
+                <button class="login-btn" type="submit" id="auth-btn">Login</button>
+            </form>
+
+            <div class="login-footer">
+                Powered by Claude AI
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // If already logged in, go to dashboard
+        if (localStorage.getItem('sc_token')) {
+            window.location.href = '/';
+        }
+
+        let authMode = 'login';
+
+        function switchAuthTab(mode) {
+            authMode = mode;
+            document.querySelectorAll('.login-tab').forEach(t => t.classList.remove('active'));
+            document.querySelector(`.login-tab:${mode === 'login' ? 'first-child' : 'last-child'}`).classList.add('active');
+            document.getElementById('register-fields').style.display = mode === 'register' ? 'block' : 'none';
+            document.getElementById('auth-btn').textContent = mode === 'login' ? 'Login' : 'Create Account';
+            document.getElementById('auth-error').style.display = 'none';
+        }
+
+        async function handleAuth(e) {
+            e.preventDefault();
+            const btn = document.getElementById('auth-btn');
+            const errorEl = document.getElementById('auth-error');
+            errorEl.style.display = 'none';
+            btn.disabled = true;
+            btn.textContent = authMode === 'login' ? 'Logging in...' : 'Creating account...';
+
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+            const displayName = document.getElementById('display-name').value.trim();
+
+            const endpoint = authMode === 'login' ? '/api/auth/login' : '/api/auth/register';
+            const body = authMode === 'login'
+                ? { email, password }
+                : { email, password, display_name: displayName || email.split('@')[0] };
+
+            try {
+                const res = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                });
+                const data = await res.json();
+
+                if (!res.ok) {
+                    throw new Error(data.detail || 'Authentication failed');
+                }
+
+                localStorage.setItem('sc_token', data.token);
+                localStorage.setItem('sc_user', JSON.stringify(data.user));
+                window.location.href = '/';
+            } catch (err) {
+                errorEl.textContent = err.message;
+                errorEl.style.display = 'block';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = authMode === 'login' ? 'Login' : 'Create Account';
+            }
+        }
+    </script>
+</body>
+</html>

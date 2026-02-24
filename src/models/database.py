@@ -32,6 +32,18 @@ class Base(DeclarativeBase):
     pass
 
 
+class User(Base):
+    """User account for web dashboard authentication."""
+
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    password_hash: Mapped[str] = mapped_column(String(255))
+    display_name: Mapped[str] = mapped_column(String(100))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class Player(Base):
     __tablename__ = "players"
 
@@ -318,8 +330,11 @@ def get_engine():
     global _engine
     if _engine is None:
         config = get_config()
-        _engine = create_engine(config.database.url, echo=False)
-        event.listen(_engine, "connect", _enable_wal_mode)
+        db_url = config.database.url
+        _engine = create_engine(db_url, echo=False)
+        # WAL mode + foreign keys are SQLite-specific
+        if "sqlite" in db_url:
+            event.listen(_engine, "connect", _enable_wal_mode)
     return _engine
 
 
