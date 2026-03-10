@@ -28,6 +28,7 @@ dependencies = [
     "psycopg2-binary>=2.9",
     "pyjwt>=2.8",
     "bcrypt>=4.0",
+    "apscheduler>=3.10,<4.0",
 ]
 
 [project.optional-dependencies]

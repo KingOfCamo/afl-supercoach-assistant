@@ -2,6 +2,7 @@ from __future__ import annotations
 
 """FastAPI application factory for the SuperCoach web dashboard."""
 
+import logging
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -15,14 +16,73 @@ from fastapi.staticfiles import StaticFiles
 from src.models.database import init_db
 from src.web.middleware.authenticate import get_current_user
 
+logger = logging.getLogger(__name__)
+
 STATIC_DIR = Path(__file__).parent / "static"
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Initialize DB on startup."""
+    """Initialize DB and start background sync scheduler on startup."""
     init_db()
+
+    # Start the data sync scheduler
+    from src.sync.scheduler import get_scheduler
+    from src.sync.tasks import (
+        sync_fanfooty,
+        sync_footywire_injuries,
+        sync_footywire_scores,
+        sync_squiggle,
+        sync_supercoach_players,
+        sync_supercoach_round_data,
+    )
+
+    scheduler = get_scheduler()
+
+    scheduler.add_job(
+        sync_supercoach_players,
+        "interval", hours=6,
+        id="supercoach_api",
+        name="SuperCoach API Players",
+    )
+    scheduler.add_job(
+        sync_supercoach_round_data,
+        "interval", minutes=30,
+        id="supercoach_round",
+        name="SuperCoach Round Data",
+    )
+    scheduler.add_job(
+        sync_footywire_scores,
+        "interval", minutes=30,
+        id="footywire_scores",
+        name="FootyWire Scores",
+    )
+    scheduler.add_job(
+        sync_footywire_injuries,
+        "interval", hours=4,
+        id="footywire_injuries",
+        name="FootyWire Injuries",
+    )
+    scheduler.add_job(
+        sync_fanfooty,
+        "interval", minutes=15,
+        id="fanfooty",
+        name="FanFooty Scores",
+    )
+    scheduler.add_job(
+        sync_squiggle,
+        "interval", hours=1,
+        id="squiggle",
+        name="Squiggle Fixtures",
+    )
+
+    scheduler.start()
+    logger.info("Data sync scheduler started with %d jobs", len(scheduler.get_jobs()))
+
     yield
+
+    scheduler.shutdown(wait=False)
+    logger.info("Data sync scheduler shut down")
 
 
 def create_app() -> FastAPI:
@@ -84,6 +144,15 @@ def create_app() -> FastAPI:
         ai_router,
         prefix="/api/ai",
         tags=["ai"],
+        dependencies=[Depends(get_current_user)],
+    )
+
+    from src.web.routes.sync import router as sync_router
+
+    application.include_router(
+        sync_router,
+        prefix="/api/sync",
+        tags=["sync"],
         dependencies=[Depends(get_current_user)],
     )
 
