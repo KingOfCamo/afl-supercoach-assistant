@@ -286,7 +286,7 @@ class FootyWireScraper(BaseScraper):
 
                 # Find matching player in DB by name
                 player = session.execute(
-                    select(Player).where(Player.name.ilike(f"%{player_name}%"))
+                    select(Player).where(Player.name.ilike(f"%{player_name}%")).limit(1)
                 ).scalar_one_or_none()
 
                 if player is None:
@@ -297,7 +297,7 @@ class FootyWireScraper(BaseScraper):
 
                 # Upsert injury (one active injury per player)
                 existing = session.execute(
-                    select(Injury).where(Injury.player_id == player.id)
+                    select(Injury).where(Injury.player_id == player.id).limit(1)
                 ).scalar_one_or_none()
 
                 if existing:
