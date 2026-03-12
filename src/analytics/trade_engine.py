@@ -5,8 +5,8 @@ from __future__ import annotations
 Identifies underperformers on your team and suggests replacements.
 
 Trade-out scoring (identify worst performers):
+- Injured players (severity-ranked: indefinite > multi-week > short-term)
 - 3-game rolling avg below breakeven by 15+ points
-- Injuries with extended timeline
 - Price trending down
 
 Trade-in scoring (best replacements):
@@ -82,13 +82,44 @@ class TradeRecommendation:
     projected_gain: float  # projected score improvement
 
 
+def _injury_severity(injury: Injury) -> float:
+    """Score injury severity for trade priority. Higher = more urgent to trade.
+
+    Returns a negative gap-equivalent value so injured players sort alongside
+    underperformers (more negative = higher priority).
+    """
+    est = (injury.estimated_return or "").lower().strip()
+
+    # Indefinite / season-ending / TBC = most urgent
+    if not est or est in ("tbc", "tbd", "indefinite", "season", "unknown"):
+        return -100.0
+    # Multi-week injuries
+    for phrase, score in [
+        ("6-8", -80.0), ("4-6", -70.0), ("3-4", -55.0),
+        ("2-3", -45.0), ("1-2", -30.0),
+    ]:
+        if phrase in est:
+            return score
+    # Generic week references
+    if "week" in est:
+        import re
+        nums = re.findall(r"\d+", est)
+        if nums:
+            weeks = max(int(n) for n in nums)
+            return -15.0 * weeks
+    # "Test" / "Managed" = low severity
+    if "test" in est or "manage" in est:
+        return -10.0
+    return -25.0
+
+
 def _find_underperformers(
     season: int,
     round_num: int,
     threshold: float = 15.0,
     user_id: Optional[int] = None,
 ) -> list[TradeOutCandidate]:
-    """Find team players who are underperforming their breakeven."""
+    """Find team players who are underperforming or injured."""
     session = get_session()
     try:
         query = select(MyTeamSlot)
@@ -100,50 +131,82 @@ def _find_underperformers(
 
     candidates = []
     for slot in slots:
-        be = compute_breakeven(slot.player_id, season=season)
-        if be is None:
-            continue
-
-        # Check injury
+        # Check injury independently of breakeven
         session2 = get_session()
         try:
+            player = session2.get(Player, slot.player_id)
             injury = session2.execute(
-                select(Injury).where(Injury.player_id == slot.player_id)
+                select(Injury).where(Injury.player_id == slot.player_id).limit(1)
+            ).scalar_one_or_none()
+            # Get latest price even without full breakeven data
+            latest_score = session2.execute(
+                select(SupercoachScore)
+                .where(
+                    SupercoachScore.player_id == slot.player_id,
+                    SupercoachScore.season == season,
+                )
+                .order_by(desc(SupercoachScore.round))
+                .limit(1)
+            ).scalar_one_or_none()
+            dfs = session2.execute(
+                select(DfsPlayerStats)
+                .where(DfsPlayerStats.player_id == slot.player_id)
+                .order_by(desc(DfsPlayerStats.season))
+                .limit(1)
             ).scalar_one_or_none()
         finally:
             session2.close()
 
-        is_injured = injury is not None
+        if player is None:
+            continue
+
+        is_injured = injury is not None and injury.status in ("OUT", "DOUBTFUL", "TBC")
         injury_detail = None
-        if injury:
+        if injury and is_injured:
             injury_detail = f"{injury.injury_type} - {injury.estimated_return}"
 
-        # Compute gap (negative = underperforming)
+        # Get breakeven data (may be None for players with no scores)
+        be = compute_breakeven(slot.player_id, season=season)
+
+        # Compute gap from breakeven (negative = underperforming)
         gap = 0.0
-        if be.rolling_3_avg is not None and be.breakeven is not None:
+        if be and be.rolling_3_avg is not None and be.breakeven is not None:
             gap = be.rolling_3_avg - be.breakeven
 
-        # Determine reason
+        # Build reasons list
         reasons = []
-        if gap < -threshold:
+        if be and gap < -threshold:
             reasons.append(f"Avg {be.rolling_3_avg:.0f} is {abs(gap):.0f}pts below BE {be.breakeven}")
         if is_injured:
             reasons.append(f"Injured: {injury_detail}")
-        if be.price_direction == "falling":
+            # Override gap with injury severity so injured players sort high
+            injury_gap = _injury_severity(injury)
+            if injury_gap < gap:
+                gap = injury_gap
+        if be and be.price_direction == "falling":
             reasons.append(f"Price falling (est {be.projected_change:+,})")
 
         if not reasons:
             continue
 
+        # Determine price from whatever source is available
+        current_price = 0
+        if be:
+            current_price = be.current_price
+        elif latest_score and latest_score.price:
+            current_price = latest_score.price
+        elif dfs and dfs.salary:
+            current_price = dfs.salary
+
         candidates.append(
             TradeOutCandidate(
-                player_id=be.player_id,
-                player_name=be.player_name,
-                team=be.team,
-                position=be.position,
-                current_price=be.current_price,
-                rolling_3_avg=be.rolling_3_avg,
-                breakeven=be.breakeven,
+                player_id=player.id,
+                player_name=player.name,
+                team=player.team,
+                position=player.position,
+                current_price=current_price,
+                rolling_3_avg=be.rolling_3_avg if be else None,
+                breakeven=be.breakeven if be else None,
                 gap=gap,
                 is_injured=is_injured,
                 injury_detail=injury_detail,
@@ -151,7 +214,7 @@ def _find_underperformers(
             )
         )
 
-    # Sort by gap ascending (worst performers first)
+    # Sort by gap ascending (worst performers / most injured first)
     candidates.sort(key=lambda c: c.gap)
     return candidates
 
