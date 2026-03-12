@@ -248,6 +248,17 @@ def _find_replacements(
             if player_dvp != target_dvp:
                 continue
 
+        # Skip injured players
+        session_inj = get_session()
+        try:
+            inj = session_inj.execute(
+                select(Injury).where(Injury.player_id == player.id).limit(1)
+            ).scalar_one_or_none()
+        finally:
+            session_inj.close()
+        if inj and inj.status in ("OUT", "DOUBTFUL", "TBC"):
+            continue
+
         # Get projection
         proj = project_player(player.id, round_num, season=season)
         if proj is None:

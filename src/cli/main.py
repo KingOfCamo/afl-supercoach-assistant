@@ -178,6 +178,27 @@ def scrape_fanfooty(
     console.print(f"[green]Done! Scraped {count} FanFooty scores.[/green]")
 
 
+@scrape_app.command("aflcomau")
+def scrape_aflcomau() -> None:
+    """Scrape injury list from AFL.com.au (official source)."""
+    from src.models.database import init_db
+    from src.scrapers.aflcomau import AflComAuScraper
+
+    _setup_logging()
+    init_db()
+
+    async def _run() -> int:
+        scraper = AflComAuScraper()
+        try:
+            with console.status("[bold]Scraping AFL.com.au injury list...[/bold]"):
+                return await scraper.scrape_injury_list()
+        finally:
+            await scraper.close()
+
+    count = asyncio.run(_run())
+    console.print(f"[green]Done! Scraped {count} injuries from AFL.com.au.[/green]")
+
+
 def _find_player(session: object, name: str):
     """Smart player lookup: handles full names, short names (C.Serong), and last names."""
     from src.models.database import Player

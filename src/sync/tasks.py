@@ -19,6 +19,7 @@ SOURCE_SUPERCOACH_API = "supercoach_api"
 SOURCE_SUPERCOACH_ROUND = "supercoach_round"
 SOURCE_FOOTYWIRE_SCORES = "footywire_scores"
 SOURCE_FOOTYWIRE_INJURIES = "footywire_injuries"
+SOURCE_AFLCOMAU_INJURIES = "aflcomau_injuries"
 SOURCE_FANFOOTY = "fanfooty"
 SOURCE_SQUIGGLE = "squiggle"
 
@@ -107,6 +108,26 @@ async def sync_footywire_injuries() -> None:
         logger.error("FootyWire injuries failed: %s", e, exc_info=True)
 
 
+async def sync_aflcomau_injuries() -> None:
+    """Scrape current injury list from AFL.com.au (official source)."""
+    source = SOURCE_AFLCOMAU_INJURIES
+    # Runs on 4h interval — no skip logic needed
+    record_start(source)
+    try:
+        from src.scrapers.aflcomau import AflComAuScraper
+
+        scraper = AflComAuScraper()
+        try:
+            count = await scraper.scrape_injury_list()
+            record_success(source, count)
+            logger.info("AFL.com.au injuries: %d injuries scraped", count)
+        finally:
+            await scraper.close()
+    except Exception as e:
+        record_error(source, str(e))
+        logger.error("AFL.com.au injuries failed: %s", e, exc_info=True)
+
+
 async def sync_fanfooty() -> None:
     """Scrape SuperCoach scores from FanFooty for current round."""
     source = SOURCE_FANFOOTY
@@ -161,6 +182,7 @@ async def sync_all() -> Dict[str, str]:
         ("squiggle", sync_squiggle),
         ("footywire_scores", sync_footywire_scores),
         ("footywire_injuries", sync_footywire_injuries),
+        ("aflcomau_injuries", sync_aflcomau_injuries),
         ("fanfooty", sync_fanfooty),
         ("supercoach_round", sync_supercoach_round_data),
     ]

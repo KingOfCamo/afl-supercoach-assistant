@@ -45,6 +45,7 @@ async def trigger_sync(
 ) -> dict:
     """Manually trigger a data sync. Runs in background."""
     from src.sync.tasks import (
+        sync_aflcomau_injuries,
         sync_all,
         sync_fanfooty,
         sync_footywire_injuries,
@@ -59,6 +60,7 @@ async def trigger_sync(
         "supercoach_round": sync_supercoach_round_data,
         "footywire_scores": sync_footywire_scores,
         "footywire_injuries": sync_footywire_injuries,
+        "aflcomau_injuries": sync_aflcomau_injuries,
         "fanfooty": sync_fanfooty,
         "squiggle": sync_squiggle,
     }
