@@ -72,6 +72,51 @@
                         </div>
                     </div>
 
+                    <!-- Captain / Vice-Captain Picker -->
+                    <div class="captain-picker" id="captain-picker">
+                        <div class="captain-picker-item">
+                            <span class="captain-picker-label">Captain (2x)</span>
+                            <button class="captain-picker-btn captain" id="captain-btn" onclick="App.Team.toggleCaptainMode('captain')">
+                                <span class="captain-picker-badge cb-c">C</span>
+                                <span class="captain-picker-name" id="captain-name">Select Captain</span>
+                            </button>
+                        </div>
+                        <div class="captain-picker-item">
+                            <span class="captain-picker-label">Vice Captain</span>
+                            <button class="captain-picker-btn vc" id="vc-btn" onclick="App.Team.toggleCaptainMode('vc')">
+                                <span class="captain-picker-badge cb-vc">VC</span>
+                                <span class="captain-picker-name" id="vc-name">Select Vice Captain</span>
+                            </button>
+                        </div>
+                        <div class="captain-picker-divider"></div>
+                        <div class="captain-picker-item emergency-picker-group">
+                            <span class="captain-picker-label">Emergencies</span>
+                            <div class="emergency-slots" id="emergency-slots">
+                                <span class="emg-slot" id="emg-slot-1">E1: -</span>
+                                <span class="emg-slot" id="emg-slot-2">E2: -</span>
+                                <span class="emg-slot" id="emg-slot-3">E3: -</span>
+                                <span class="emg-slot" id="emg-slot-4">E4: -</span>
+                            </div>
+                            <button class="btn btn-sm" onclick="App.Team.toggleEmergencyMode()" id="emg-edit-btn" title="Edit emergencies">Edit</button>
+                        </div>
+                        <div class="captain-picker-hint" id="captain-hint" style="display:none;">
+                            Click a player card to assign
+                        </div>
+                    </div>
+
+                    <!-- Live Scores Bar -->
+                    <div class="live-scores-bar" id="live-scores-bar">
+                        <div class="live-scores-header" onclick="App.Team.toggleLiveExpanded()">
+                            <span class="live-scores-title">Live Scores</span>
+                            <span class="live-scores-round" id="live-round-label">Round -</span>
+                            <span class="live-scores-total" id="live-total">-</span>
+                            <span class="live-scores-projected" id="live-projected">Proj: -</span>
+                            <span class="live-scores-games" id="live-games-status"></span>
+                            <button class="btn btn-sm" onclick="event.stopPropagation();App.Team.loadLiveScores()" id="live-refresh-btn" title="Refresh scores">&#8635;</button>
+                        </div>
+                        <div class="live-scores-players" id="live-scores-players" style="display:none;"></div>
+                    </div>
+
                     <div class="team-builder">
                         <!-- Left: Player Search -->
                         <div class="panel">

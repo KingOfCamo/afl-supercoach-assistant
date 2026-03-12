@@ -122,10 +122,12 @@ const App = {
             indicator.title = `Connected to API at ${API_BASE || 'localhost'}`;
             overlay.style.display = 'none';
 
-            // Load team on first successful connection
+            // Load team + live scores on first successful connection
             if (!this._initialLoad) {
                 this._initialLoad = true;
                 this.Team.loadTeam();
+                this.Team.loadLiveScores();
+                this.Team.startLiveRefresh();
             }
         } catch (e) {
             this.state.connected = false;
@@ -161,6 +163,11 @@ const App = {
         _lastTeamData: null,
         _pendingSlot: null,
         _contextMenu: null,
+        _captainMode: null, // null, 'captain', or 'vc'
+        _emergencyMode: false,
+        _emergencyPicks: [], // player_ids in order
+        _liveScoresExpanded: false,
+        _liveRefreshInterval: null,
         SALARY_CAP: 10000000,
 
         switchView(view) {
@@ -372,9 +379,22 @@ const App = {
             this.closeCardMenu();
 
             const card = event.currentTarget;
+            const slot = this._lastTeamData
+                ? this._lastTeamData.slots.find(s => s.id === slotId)
+                : null;
+            const isBench = slot && slot.position_slot.startsWith('BENCH');
+
             let html = '<div class="fc-context-menu">';
             html += `<div class="fc-context-item" onclick="App.Team.setCaptain(${playerId})">&#128081; Set Captain</div>`;
             html += `<div class="fc-context-item" onclick="App.Team.setVC(${playerId})">&#127775; Set Vice Captain</div>`;
+            if (isBench) {
+                const isEmg = slot && slot.is_emergency;
+                if (isEmg) {
+                    html += `<div class="fc-context-item" onclick="App.Team.quickRemoveEmergency(${playerId})">&#10006; Remove Emergency</div>`;
+                } else {
+                    html += `<div class="fc-context-item" onclick="App.Team.quickAddEmergency(${playerId})">&#127919; Set Emergency</div>`;
+                }
+            }
             html += `<div class="fc-context-item danger" onclick="App.Team.removePlayer(${slotId})">&#10060; Remove</div>`;
             html += '</div>';
             card.insertAdjacentHTML('beforeend', html);
@@ -466,6 +486,344 @@ const App = {
             }
         },
 
+        // --- Captain/VC picker mode ---
+        toggleCaptainMode(mode) {
+            const captainBtn = document.getElementById('captain-btn');
+            const vcBtn = document.getElementById('vc-btn');
+            const hint = document.getElementById('captain-hint');
+
+            if (this._captainMode === mode) {
+                // Toggle off
+                this._captainMode = null;
+                captainBtn.classList.remove('selecting');
+                vcBtn.classList.remove('selecting');
+                hint.style.display = 'none';
+            } else {
+                this._captainMode = mode;
+                captainBtn.classList.toggle('selecting', mode === 'captain');
+                vcBtn.classList.toggle('selecting', mode === 'vc');
+                hint.style.display = '';
+            }
+            // Re-render to add/remove clickable indicators
+            if (this._lastTeamData) this.renderTeam(this._lastTeamData);
+        },
+
+        handleCardClick(playerId) {
+            if (!this._captainMode) return;
+            if (this._captainMode === 'captain') {
+                this.setCaptain(playerId);
+            } else {
+                this.setVC(playerId);
+            }
+            // Exit captain mode after selection
+            this._captainMode = null;
+            document.getElementById('captain-btn').classList.remove('selecting');
+            document.getElementById('vc-btn').classList.remove('selecting');
+            document.getElementById('captain-hint').style.display = 'none';
+        },
+
+        _updateCaptainPicker(data) {
+            const captainSlot = data.slots.find(s => s.is_captain);
+            const vcSlot = data.slots.find(s => s.is_vice_captain);
+            const captainBtn = document.getElementById('captain-btn');
+            const vcBtn = document.getElementById('vc-btn');
+            const captainName = document.getElementById('captain-name');
+            const vcName = document.getElementById('vc-name');
+
+            if (captainSlot) {
+                captainName.textContent = captainSlot.player_name;
+                captainBtn.classList.add('has-player');
+            } else {
+                captainName.textContent = 'Select Captain';
+                captainBtn.classList.remove('has-player');
+            }
+
+            if (vcSlot) {
+                vcName.textContent = vcSlot.player_name;
+                vcBtn.classList.add('has-player');
+            } else {
+                vcName.textContent = 'Select Vice Captain';
+                vcBtn.classList.remove('has-player');
+            }
+        },
+
+        // --- Live Scores ---
+        async loadLiveScores() {
+            const round = App.state.config ? App.state.config.current_round : 1;
+            try {
+                const res = await authFetch(`${API_BASE}/api/analytics/live?round=${round}`);
+                const data = await res.json();
+                this._renderLiveScores(data);
+            } catch (e) {
+                console.error('Failed to load live scores:', e);
+            }
+        },
+
+        toggleLiveExpanded() {
+            this._liveScoresExpanded = !this._liveScoresExpanded;
+            document.getElementById('live-scores-players').style.display =
+                this._liveScoresExpanded ? 'block' : 'none';
+        },
+
+        _renderLiveScores(data) {
+            document.getElementById('live-round-label').textContent = `Round ${data.round}`;
+            document.getElementById('live-total').textContent = data.total_live_score || 0;
+            document.getElementById('live-projected').textContent =
+                `Proj: ${data.projected_total ? data.projected_total.toFixed(0) : '-'}`;
+
+            const parts = [];
+            if (data.games_complete > 0) parts.push(`${data.games_complete} complete`);
+            if (data.games_in_progress > 0) parts.push(`${data.games_in_progress} live`);
+            if (data.games_upcoming > 0) parts.push(`${data.games_upcoming} upcoming`);
+            document.getElementById('live-games-status').textContent = parts.join(' | ');
+
+            // Player breakdown table
+            const container = document.getElementById('live-scores-players');
+            if (!data.players || !data.players.length) {
+                container.innerHTML = '<div class="empty-state" style="padding:12px">No team loaded</div>';
+                return;
+            }
+
+            // Sort: on-field first, then by score descending
+            const sorted = [...data.players].sort((a, b) => {
+                const aOnField = !a.position_slot.startsWith('BENCH') && !a.is_emergency;
+                const bOnField = !b.position_slot.startsWith('BENCH') && !b.is_emergency;
+                if (aOnField !== bOnField) return aOnField ? -1 : 1;
+                return (b.live_score || 0) - (a.live_score || 0);
+            });
+
+            let html = '<table class="live-scores-table"><thead><tr>';
+            html += '<th>Player</th><th>Slot</th><th>Opp</th>';
+            html += '<th class="right">Score</th><th class="right">Proj</th><th>Status</th>';
+            html += '</tr></thead><tbody>';
+
+            for (const p of sorted) {
+                const badges = [];
+                if (p.is_captain) badges.push('<span style="color:var(--sc-gold);font-weight:700">C</span>');
+                if (p.is_vice_captain) badges.push('<span style="color:var(--accent-cyan);font-weight:700">VC</span>');
+
+                const scoreClass = p.match_status === 'complete' ? 'complete' :
+                    p.match_status === 'in_progress' ? 'in_progress' : 'upcoming';
+                const scoreVal = p.live_score != null ? p.live_score : '-';
+                const displayScore = p.is_captain && p.live_score != null ?
+                    `${p.live_score} (${p.live_score * 2})` : scoreVal;
+                const projVal = p.projected_final != null ? p.projected_final.toFixed(0) : '-';
+
+                html += '<tr>';
+                html += `<td>${esc(p.player_name)} ${badges.join(' ')}</td>`;
+                html += `<td style="color:var(--text-muted)">${p.position_slot}</td>`;
+                html += `<td style="color:var(--text-muted)">${esc(p.opponent || '-')}</td>`;
+                html += `<td class="right"><span class="live-score-badge ${scoreClass}">${displayScore}</span></td>`;
+                html += `<td class="right" style="color:var(--text-secondary)">${projVal}</td>`;
+                html += `<td><span class="match-status-pill ${scoreClass}">${p.match_status.replace('_', ' ')}</span></td>`;
+                html += '</tr>';
+            }
+
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        },
+
+        startLiveRefresh() {
+            if (this._liveRefreshInterval) return;
+            // Refresh every 60 seconds
+            this._liveRefreshInterval = setInterval(() => {
+                if (App.state.connected) this.loadLiveScores();
+            }, 60000);
+        },
+
+        stopLiveRefresh() {
+            if (this._liveRefreshInterval) {
+                clearInterval(this._liveRefreshInterval);
+                this._liveRefreshInterval = null;
+            }
+        },
+
+        // --- Emergency selection ---
+        toggleEmergencyMode() {
+            this._emergencyMode = !this._emergencyMode;
+            const btn = document.getElementById('emg-edit-btn');
+            const hint = document.getElementById('captain-hint');
+
+            if (this._emergencyMode) {
+                // Exit captain mode if active
+                this._captainMode = null;
+                document.getElementById('captain-btn').classList.remove('selecting');
+                document.getElementById('vc-btn').classList.remove('selecting');
+
+                // Load current emergencies
+                this._emergencyPicks = [];
+                if (this._lastTeamData) {
+                    const emgSlots = this._lastTeamData.slots
+                        .filter(s => s.is_emergency && s.emergency_order)
+                        .sort((a, b) => a.emergency_order - b.emergency_order);
+                    this._emergencyPicks = emgSlots.map(s => s.player_id);
+                }
+
+                btn.textContent = 'Done';
+                btn.style.background = 'var(--accent-green)';
+                btn.style.color = 'white';
+                btn.style.borderColor = 'var(--accent-green)';
+                hint.textContent = 'Click bench players to set E1-E4 (click again to remove)';
+                hint.style.display = '';
+                this._updateEmergencySlotDisplay();
+            } else {
+                // Save emergencies
+                this._saveEmergencies();
+                btn.textContent = 'Edit';
+                btn.style.background = '';
+                btn.style.color = '';
+                btn.style.borderColor = '';
+                hint.style.display = 'none';
+            }
+
+            // Re-render bench cards with selectable state
+            if (this._lastTeamData) this.renderTeam(this._lastTeamData);
+        },
+
+        handleBenchEmergencyClick(playerId) {
+            if (!this._emergencyMode) return;
+
+            const idx = this._emergencyPicks.indexOf(playerId);
+            if (idx !== -1) {
+                // Remove this pick
+                this._emergencyPicks.splice(idx, 1);
+            } else if (this._emergencyPicks.length < 4) {
+                // Check position coverage — SuperCoach requires one per line
+                const player = this._lastTeamData.slots.find(s => s.player_id === playerId);
+                if (!player) return;
+
+                const playerPos = (player.position || '').split('/')[0].toUpperCase();
+                const existingPositions = this._emergencyPicks.map(pid => {
+                    const s = this._lastTeamData.slots.find(sl => sl.player_id === pid);
+                    return s ? (s.position || '').split('/')[0].toUpperCase() : '';
+                });
+
+                // Allow if this position line isn't already covered, OR if dual-position
+                if (existingPositions.includes(playerPos)) {
+                    // Check if player has a second position
+                    const positions = (player.position || '').split('/').map(p => p.trim().toUpperCase());
+                    const hasUncovered = positions.some(p => !existingPositions.includes(p));
+                    if (!hasUncovered) {
+                        alert(`You already have an emergency for ${playerPos}. SuperCoach requires one per position line.`);
+                        return;
+                    }
+                }
+
+                this._emergencyPicks.push(playerId);
+            } else {
+                alert('Maximum 4 emergencies. Remove one first.');
+                return;
+            }
+
+            this._updateEmergencySlotDisplay();
+            if (this._lastTeamData) this.renderTeam(this._lastTeamData);
+        },
+
+        _updateEmergencySlotDisplay() {
+            for (let i = 1; i <= 4; i++) {
+                const el = document.getElementById(`emg-slot-${i}`);
+                if (!el) continue;
+
+                if (i <= this._emergencyPicks.length) {
+                    const pid = this._emergencyPicks[i - 1];
+                    const slot = this._lastTeamData
+                        ? this._lastTeamData.slots.find(s => s.player_id === pid)
+                        : null;
+                    const name = slot ? slot.player_name.split(' ').pop() : `#${pid}`;
+                    const pos = slot ? (slot.position || '').split('/')[0] : '';
+                    el.textContent = `E${i}: ${name} (${pos})`;
+                    el.className = 'emg-slot filled';
+                } else {
+                    el.textContent = `E${i}: -`;
+                    el.className = this._emergencyMode ? 'emg-slot selecting' : 'emg-slot';
+                }
+            }
+        },
+
+        async _saveEmergencies() {
+            if (!this._emergencyPicks.length && !this._lastTeamData?.slots.some(s => s.is_emergency)) {
+                return; // Nothing to save
+            }
+            try {
+                await authFetch(`${API_BASE}/api/team/emergency`, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({emergencies: this._emergencyPicks}),
+                });
+                this.loadTeam();
+            } catch (e) {
+                alert('Error saving emergencies: ' + e.message);
+            }
+        },
+
+        async quickAddEmergency(playerId) {
+            this.closeCardMenu();
+            // Get current emergencies
+            const emgSlots = (this._lastTeamData?.slots || [])
+                .filter(s => s.is_emergency && s.emergency_order)
+                .sort((a, b) => a.emergency_order - b.emergency_order);
+            const picks = emgSlots.map(s => s.player_id);
+
+            if (picks.length >= 4) {
+                alert('Already have 4 emergencies. Remove one first.');
+                return;
+            }
+            picks.push(playerId);
+
+            try {
+                await authFetch(`${API_BASE}/api/team/emergency`, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({emergencies: picks}),
+                });
+                this.loadTeam();
+            } catch (e) {
+                alert('Error: ' + e.message);
+            }
+        },
+
+        async quickRemoveEmergency(playerId) {
+            this.closeCardMenu();
+            const emgSlots = (this._lastTeamData?.slots || [])
+                .filter(s => s.is_emergency && s.emergency_order)
+                .sort((a, b) => a.emergency_order - b.emergency_order);
+            const picks = emgSlots.map(s => s.player_id).filter(id => id !== playerId);
+
+            try {
+                await authFetch(`${API_BASE}/api/team/emergency`, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({emergencies: picks}),
+                });
+                this.loadTeam();
+            } catch (e) {
+                alert('Error: ' + e.message);
+            }
+        },
+
+        _updateEmergencyPickerFromData(data) {
+            // Update emergency slot display from team data
+            const emgSlots = data.slots
+                .filter(s => s.is_emergency && s.emergency_order)
+                .sort((a, b) => a.emergency_order - b.emergency_order);
+
+            for (let i = 1; i <= 4; i++) {
+                const el = document.getElementById(`emg-slot-${i}`);
+                if (!el) continue;
+
+                if (i <= emgSlots.length) {
+                    const s = emgSlots[i - 1];
+                    const name = s.player_name.split(' ').pop();
+                    const pos = (s.position || '').split('/')[0];
+                    el.textContent = `E${i}: ${name} (${pos})`;
+                    el.className = 'emg-slot filled';
+                } else {
+                    el.textContent = `E${i}: -`;
+                    el.className = 'emg-slot';
+                }
+            }
+        },
+
         async clearTeam() {
             if (!confirm('Clear your entire team?')) return;
             try {
@@ -545,6 +903,10 @@ const App = {
 
             this._renderListView(data);
             this._renderFieldView(data);
+            this._updateCaptainPicker(data);
+            if (!this._emergencyMode) {
+                this._updateEmergencyPickerFromData(data);
+            }
         },
 
         _renderListView(data) {
@@ -570,18 +932,27 @@ const App = {
                     const badges = [];
                     if (s.is_captain) badges.push('<span class="badge badge-captain">C</span>');
                     if (s.is_vice_captain) badges.push('<span class="badge badge-vc">VC</span>');
-                    if (s.is_emergency) badges.push('<span class="badge badge-emg">EMG</span>');
+                    if (s.is_emergency && s.emergency_order) {
+                        badges.push(`<span class="badge badge-emg">E${s.emergency_order}</span>`);
+                    } else if (s.is_emergency) {
+                        badges.push('<span class="badge badge-emg">EMG</span>');
+                    }
 
                     const salary = s.salary ? `$${s.salary.toLocaleString()}` : '';
+                    const score = s.last_score != null ? s.last_score : (s.sc_avg != null ? s.sc_avg : '-');
 
                     html += `<div class="team-slot">`;
                     html += `<span class="slot-label">${s.position_slot}</span>`;
                     html += `<span class="player-name">${this._esc(s.player_name)}${badges.join('')}</span>`;
                     html += `<span class="player-team">${this._esc(s.team)}</span>`;
+                    html += `<span class="player-score" style="font-size:12px;font-weight:700;width:40px;text-align:right;margin-right:4px">${score}</span>`;
                     html += `<span class="player-salary">${salary}</span>`;
+                    const cActive = s.is_captain ? ' style="background:var(--sc-gold);color:#1a1a1a;border-color:var(--sc-gold);opacity:1"' : '';
+                    const vcActive = s.is_vice_captain ? ' style="background:var(--accent-cyan);color:#1a1a1a;border-color:var(--accent-cyan);opacity:1"' : '';
+
                     html += `<div class="actions">`;
-                    html += `<button class="btn btn-sm" onclick="App.Team.setCaptain(${s.player_id})" title="Set Captain">C</button>`;
-                    html += `<button class="btn btn-sm" onclick="App.Team.setVC(${s.player_id})" title="Set Vice Captain">VC</button>`;
+                    html += `<button class="btn btn-sm"${cActive} onclick="App.Team.setCaptain(${s.player_id})" title="Set Captain">C</button>`;
+                    html += `<button class="btn btn-sm"${vcActive} onclick="App.Team.setVC(${s.player_id})" title="Set Vice Captain">VC</button>`;
                     html += `<button class="btn btn-sm btn-danger" onclick="App.Team.removePlayer(${s.id})" title="Remove">x</button>`;
                     html += `</div>`;
                     html += `</div>`;
@@ -708,7 +1079,11 @@ const App = {
             const displayName = this._abbreviateName(s.player_name);
             const posLabel = s.position ? s.position.replace('/', ' | ') : '';
 
-            let html = `<div class="field-card" style="border-left-color:${teamColor}" oncontextmenu="App.Team.showCardMenu(event, ${s.id}, ${s.player_id})">`;
+            const selectable = this._captainMode ? ' captain-selectable' : '';
+            const clickHandler = this._captainMode
+                ? `onclick="App.Team.handleCardClick(${s.player_id})"`
+                : '';
+            let html = `<div class="field-card${selectable}" style="border-left-color:${teamColor}" oncontextmenu="App.Team.showCardMenu(event, ${s.id}, ${s.player_id})" ${clickHandler}>`;
 
             // Remove button (top-right, shown on hover)
             html += `<button class="fc-remove" onclick="event.stopPropagation();App.Team.removePlayer(${s.id})" title="Remove">&times;</button>`;
@@ -737,13 +1112,30 @@ const App = {
             const score = s.last_score != null ? s.last_score : (s.sc_avg != null ? s.sc_avg : 0);
             const displayName = this._abbreviateName(s.player_name);
 
-            let html = `<div class="bench-card" style="border-left-color:${teamColor}" oncontextmenu="App.Team.showCardMenu(event, ${s.id}, ${s.player_id})">`;
+            let selectable = this._captainMode ? ' captain-selectable' : '';
+            let clickHandler = this._captainMode
+                ? `onclick="App.Team.handleCardClick(${s.player_id})"`
+                : '';
+
+            // Emergency mode: bench cards are clickable
+            if (this._emergencyMode) {
+                selectable = ' emg-selectable';
+                clickHandler = `onclick="App.Team.handleBenchEmergencyClick(${s.player_id})"`;
+            }
+
+            let html = `<div class="bench-card${selectable}" style="border-left-color:${teamColor}" oncontextmenu="App.Team.showCardMenu(event, ${s.id}, ${s.player_id})" ${clickHandler}>`;
 
             // Remove button (top-right, shown on hover)
             html += `<button class="fc-remove" onclick="event.stopPropagation();App.Team.removePlayer(${s.id})" title="Remove">&times;</button>`;
 
-            if (s.is_emergency) {
-                html += '<div class="fc-emg">E</div>';
+            // Emergency badge — show order number
+            const emgIdx = this._emergencyMode
+                ? this._emergencyPicks.indexOf(s.player_id)
+                : -1;
+            if (emgIdx !== -1) {
+                html += `<div class="fc-emg">E${emgIdx + 1}</div>`;
+            } else if (!this._emergencyMode && s.is_emergency && s.emergency_order) {
+                html += `<div class="fc-emg">E${s.emergency_order}</div>`;
             }
 
             html += `<div class="fc-score">${score}</div>`;

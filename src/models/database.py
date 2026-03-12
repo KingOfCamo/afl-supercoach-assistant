@@ -148,6 +148,7 @@ class MyTeamSlot(Base):
     is_captain: Mapped[bool] = mapped_column(Boolean, default=False)
     is_vice_captain: Mapped[bool] = mapped_column(Boolean, default=False)
     is_emergency: Mapped[bool] = mapped_column(Boolean, default=False)
+    emergency_order: Mapped[Optional[int]] = mapped_column(Integer)  # 1-4 priority
     added_round: Mapped[Optional[int]] = mapped_column(Integer)
     added_price: Mapped[Optional[int]] = mapped_column(Integer)
 
@@ -352,6 +353,18 @@ def init_db():
     """Create all tables. Safe to call multiple times."""
     engine = get_engine()
     Base.metadata.create_all(engine)
+
+    # Add columns that may be missing on existing databases
+    from sqlalchemy import inspect as sa_inspect, text
+
+    insp = sa_inspect(engine)
+    if insp.has_table("my_team"):
+        cols = {c["name"] for c in insp.get_columns("my_team")}
+        if "emergency_order" not in cols:
+            with engine.begin() as conn:
+                conn.execute(text(
+                    "ALTER TABLE my_team ADD COLUMN emergency_order INTEGER"
+                ))
 
 
 def reset_engine():

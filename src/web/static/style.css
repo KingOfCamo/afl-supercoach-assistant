@@ -403,13 +403,18 @@ select.input {
 .badge-emg { background: var(--bg-input); color: var(--text-secondary); }
 
 .team-slot .actions {
-    display: none;
+    display: flex;
     gap: 4px;
     margin-left: 8px;
 }
 
-.team-slot:hover .actions {
-    display: flex;
+.team-slot .actions .btn-sm {
+    opacity: 0.5;
+    transition: opacity 0.15s;
+}
+
+.team-slot:hover .actions .btn-sm {
+    opacity: 1;
 }
 
 .team-slot.empty {
@@ -1329,6 +1334,330 @@ select.input {
     font-size: 14px;
 }
 .pending-slot-banner button:hover { color: var(--text-primary); }
+
+/* ——— Captain / Vice-Captain Picker ——— */
+.captain-picker {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 12px;
+    padding: 10px 16px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+
+.captain-picker-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.captain-picker-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.captain-picker-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 14px;
+    border: 2px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-card);
+    color: var(--text-primary);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+    min-width: 160px;
+}
+
+.captain-picker-btn:hover {
+    border-color: var(--border-hover);
+    background: var(--bg-input);
+}
+
+.captain-picker-btn.selecting {
+    border-color: var(--accent-yellow);
+    background: rgba(234, 179, 8, 0.1);
+    animation: pulse-border 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-border {
+    0%, 100% { border-color: var(--accent-yellow); }
+    50% { border-color: var(--sc-gold-dark); }
+}
+
+.captain-picker-btn.has-player.captain {
+    border-color: var(--sc-gold);
+}
+
+.captain-picker-btn.has-player.vc {
+    border-color: var(--accent-cyan);
+}
+
+.captain-picker-badge {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    font-size: 10px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.captain-picker-badge.cb-c {
+    background: var(--sc-gold);
+    color: #1a1a1a;
+}
+
+.captain-picker-badge.cb-vc {
+    background: var(--accent-cyan);
+    color: #1a1a1a;
+}
+
+.captain-picker-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.captain-picker-hint {
+    margin-left: auto;
+    font-size: 12px;
+    color: var(--accent-yellow);
+    animation: pulse-hint 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-hint {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* ——— Emergency Picker ——— */
+.captain-picker-divider {
+    width: 1px;
+    height: 28px;
+    background: var(--border);
+    margin: 0 4px;
+}
+
+.emergency-picker-group {
+    gap: 6px !important;
+}
+
+.emergency-slots {
+    display: flex;
+    gap: 4px;
+}
+
+.emg-slot {
+    display: inline-block;
+    padding: 3px 8px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.emg-slot.filled {
+    background: rgba(34, 197, 94, 0.1);
+    border-color: rgba(34, 197, 94, 0.3);
+    color: var(--accent-green);
+}
+
+.emg-slot.selecting {
+    border-color: var(--accent-green);
+    animation: pulse-border-green 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-border-green {
+    0%, 100% { border-color: var(--accent-green); }
+    50% { border-color: var(--border); }
+}
+
+/* Clickable bench cards in emergency mode */
+.bench-card.emg-selectable {
+    cursor: pointer;
+    outline: 2px solid transparent;
+    transition: outline-color 0.15s;
+}
+
+.bench-card.emg-selectable:hover {
+    outline-color: var(--accent-green);
+}
+
+/* ——— Live Scores Bar ——— */
+.live-scores-bar {
+    margin-bottom: 12px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.live-scores-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 16px;
+    cursor: pointer;
+}
+
+.live-scores-header:hover {
+    background: var(--bg-card);
+}
+
+.live-scores-title {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--accent-green);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.live-scores-title::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent-green);
+    animation: pulse-dot 2s ease-in-out infinite;
+}
+
+.live-scores-round {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.live-scores-total {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.live-scores-projected {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.live-scores-games {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-left: auto;
+}
+
+.live-scores-players {
+    padding: 0 8px 8px;
+}
+
+.live-scores-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+.live-scores-table thead th {
+    padding: 6px 8px;
+    text-align: left;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border);
+}
+
+.live-scores-table thead th.right {
+    text-align: right;
+}
+
+.live-scores-table tbody tr {
+    border-bottom: 1px solid rgba(45, 49, 64, 0.5);
+}
+
+.live-scores-table tbody tr:hover {
+    background: var(--bg-card);
+}
+
+.live-scores-table tbody td {
+    padding: 5px 8px;
+}
+
+.live-scores-table tbody td.right {
+    text-align: right;
+}
+
+.live-score-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-weight: 700;
+    font-size: 12px;
+}
+
+.live-score-badge.complete {
+    background: rgba(34, 197, 94, 0.15);
+    color: var(--accent-green);
+}
+
+.live-score-badge.in_progress {
+    background: rgba(6, 182, 212, 0.15);
+    color: var(--accent-cyan);
+}
+
+.live-score-badge.upcoming {
+    color: var(--text-muted);
+}
+
+.match-status-pill {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 10px;
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.match-status-pill.complete {
+    background: rgba(34, 197, 94, 0.15);
+    color: var(--accent-green);
+}
+
+.match-status-pill.in_progress {
+    background: rgba(6, 182, 212, 0.15);
+    color: var(--accent-cyan);
+}
+
+.match-status-pill.upcoming {
+    background: rgba(90, 97, 120, 0.15);
+    color: var(--text-muted);
+}
+
+/* Clickable cards in captain mode */
+.field-card.captain-selectable,
+.bench-card.captain-selectable {
+    cursor: pointer;
+    outline: 2px solid transparent;
+    transition: outline-color 0.15s, transform 0.1s;
+}
+
+.field-card.captain-selectable:hover,
+.bench-card.captain-selectable:hover {
+    outline-color: var(--accent-yellow);
+}
 
 /* Responsive — narrower cards on small screens */
 @media (max-width: 1200px) {

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import csv
 import io
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from pydantic import BaseModel
@@ -39,6 +39,17 @@ class SlotRequest(BaseModel):
 class CaptainRequest(BaseModel):
     captain_id: int
     vice_captain_id: Optional[int] = None
+
+
+class EmergencyRequest(BaseModel):
+    """Set 4 bench emergencies in priority order.
+
+    Each entry is a player_id. Order matters: index 0 = E1 (highest priority).
+    SuperCoach rules: exactly 4 emergencies from bench, one per position line
+    (DEF, MID, RUC, FWD). When an on-field player DNPs, the highest-priority
+    emergency matching that position auto-subs in.
+    """
+    emergencies: List[int]  # list of player_ids in priority order (max 4)
 
 
 @router.get("")
@@ -114,6 +125,7 @@ def get_team(user: dict = Depends(get_current_user)) -> dict:
                 "is_captain": slot.is_captain,
                 "is_vice_captain": slot.is_vice_captain,
                 "is_emergency": slot.is_emergency,
+                "emergency_order": slot.emergency_order,
                 "salary": salary,
                 "sc_avg": round(dfs.sc_avg, 1) if dfs and dfs.sc_avg else None,
                 "last_score": latest.score if latest else None,
@@ -244,6 +256,69 @@ def set_captain(request: CaptainRequest, user: dict = Depends(get_current_user))
 
         session.commit()
         return {"success": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        session.close()
+
+
+@router.put("/emergency")
+def set_emergencies(
+    request: EmergencyRequest, user: dict = Depends(get_current_user)
+) -> dict:
+    """Set bench emergencies in priority order.
+
+    SuperCoach rules:
+    - Max 4 emergencies from bench players
+    - Each covers their position line (DEF, MID, RUC, FWD)
+    - Priority: E1 > E2 > E3 > E4
+    - When an on-field player DNPs, highest-priority emergency
+      matching that position auto-subs in with their score.
+    """
+    user_id = user["user_id"]
+    if len(request.emergencies) > 4:
+        raise HTTPException(status_code=400, detail="Maximum 4 emergencies allowed")
+
+    session = get_session()
+    try:
+        # Clear existing emergencies for this user
+        all_slots = (
+            session.execute(
+                select(MyTeamSlot).where(MyTeamSlot.user_id == user_id)
+            )
+            .scalars()
+            .all()
+        )
+        for s in all_slots:
+            s.is_emergency = False
+            s.emergency_order = None
+
+        # Set new emergencies
+        for i, player_id in enumerate(request.emergencies):
+            slot = session.execute(
+                select(MyTeamSlot).where(
+                    MyTeamSlot.user_id == user_id,
+                    MyTeamSlot.player_id == player_id,
+                )
+            ).scalar_one_or_none()
+            if not slot:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Player {player_id} is not on your team",
+                )
+            if not slot.position_slot.startswith("BENCH"):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Emergencies must be bench players",
+                )
+            slot.is_emergency = True
+            slot.emergency_order = i + 1  # 1-based
+
+        session.commit()
+        return {"success": True, "count": len(request.emergencies)}
     except HTTPException:
         raise
     except Exception as e:
