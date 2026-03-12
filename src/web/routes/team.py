@@ -6,7 +6,7 @@ import csv
 import io
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from pydantic import BaseModel
 from sqlalchemy import desc, select
 
@@ -17,6 +17,7 @@ from src.models.database import (
     SupercoachScore,
     get_session,
 )
+from src.web.middleware.authenticate import get_current_user
 
 router = APIRouter()
 
@@ -41,13 +42,16 @@ class CaptainRequest(BaseModel):
 
 
 @router.get("")
-def get_team() -> dict:
+def get_team(user: dict = Depends(get_current_user)) -> dict:
     """Get current team with player stats."""
+    user_id = user["user_id"]
     session = get_session()
     try:
         slots = (
             session.execute(
-                select(MyTeamSlot).order_by(MyTeamSlot.position_slot)
+                select(MyTeamSlot)
+                .where(MyTeamSlot.user_id == user_id)
+                .order_by(MyTeamSlot.position_slot)
             )
             .scalars()
             .all()
@@ -126,23 +130,30 @@ def get_team() -> dict:
 
 
 @router.post("/slot")
-def add_slot(request: SlotRequest) -> dict:
+def add_slot(request: SlotRequest, user: dict = Depends(get_current_user)) -> dict:
     """Add a player to a position slot."""
+    user_id = user["user_id"]
     if request.position_slot not in VALID_SLOTS:
         raise HTTPException(status_code=400, detail=f"Invalid slot: {request.position_slot}")
 
     session = get_session()
     try:
-        # Check slot not occupied
+        # Check slot not occupied for this user
         existing = session.execute(
-            select(MyTeamSlot).where(MyTeamSlot.position_slot == request.position_slot)
+            select(MyTeamSlot).where(
+                MyTeamSlot.user_id == user_id,
+                MyTeamSlot.position_slot == request.position_slot,
+            )
         ).scalar_one_or_none()
         if existing:
             raise HTTPException(status_code=409, detail=f"Slot {request.position_slot} is already occupied")
 
-        # Check player not already on team
+        # Check player not already on this user's team
         on_team = session.execute(
-            select(MyTeamSlot).where(MyTeamSlot.player_id == request.player_id)
+            select(MyTeamSlot).where(
+                MyTeamSlot.user_id == user_id,
+                MyTeamSlot.player_id == request.player_id,
+            )
         ).scalar_one_or_none()
         if on_team:
             raise HTTPException(status_code=409, detail="Player is already on your team")
@@ -153,6 +164,7 @@ def add_slot(request: SlotRequest) -> dict:
             raise HTTPException(status_code=404, detail="Player not found")
 
         slot = MyTeamSlot(
+            user_id=user_id,
             player_id=request.player_id,
             position_slot=request.position_slot,
         )
@@ -170,13 +182,16 @@ def add_slot(request: SlotRequest) -> dict:
 
 
 @router.delete("/slot/{slot_id}")
-def remove_slot(slot_id: int) -> dict:
+def remove_slot(slot_id: int, user: dict = Depends(get_current_user)) -> dict:
     """Remove a player from the team."""
+    user_id = user["user_id"]
     session = get_session()
     try:
         slot = session.get(MyTeamSlot, slot_id)
         if not slot:
             raise HTTPException(status_code=404, detail="Slot not found")
+        if slot.user_id != user_id:
+            raise HTTPException(status_code=403, detail="Not your team slot")
 
         session.delete(slot)
         session.commit()
@@ -191,19 +206,25 @@ def remove_slot(slot_id: int) -> dict:
 
 
 @router.put("/captain")
-def set_captain(request: CaptainRequest) -> dict:
+def set_captain(request: CaptainRequest, user: dict = Depends(get_current_user)) -> dict:
     """Set captain and optionally vice-captain."""
+    user_id = user["user_id"]
     session = get_session()
     try:
-        # Clear existing captain/VC
-        all_slots = session.execute(select(MyTeamSlot)).scalars().all()
+        # Clear existing captain/VC for this user only
+        all_slots = session.execute(
+            select(MyTeamSlot).where(MyTeamSlot.user_id == user_id)
+        ).scalars().all()
         for s in all_slots:
             s.is_captain = False
             s.is_vice_captain = False
 
         # Set captain
         captain_slot = session.execute(
-            select(MyTeamSlot).where(MyTeamSlot.player_id == request.captain_id)
+            select(MyTeamSlot).where(
+                MyTeamSlot.user_id == user_id,
+                MyTeamSlot.player_id == request.captain_id,
+            )
         ).scalar_one_or_none()
         if not captain_slot:
             raise HTTPException(status_code=400, detail="Captain must be on your team")
@@ -212,7 +233,10 @@ def set_captain(request: CaptainRequest) -> dict:
         # Set vice-captain
         if request.vice_captain_id:
             vc_slot = session.execute(
-                select(MyTeamSlot).where(MyTeamSlot.player_id == request.vice_captain_id)
+                select(MyTeamSlot).where(
+                    MyTeamSlot.user_id == user_id,
+                    MyTeamSlot.player_id == request.vice_captain_id,
+                )
             ).scalar_one_or_none()
             if not vc_slot:
                 raise HTTPException(status_code=400, detail="Vice-captain must be on your team")
@@ -230,11 +254,14 @@ def set_captain(request: CaptainRequest) -> dict:
 
 
 @router.post("/clear")
-def clear_team() -> dict:
-    """Clear the entire team."""
+def clear_team(user: dict = Depends(get_current_user)) -> dict:
+    """Clear the entire team for this user."""
+    user_id = user["user_id"]
     session = get_session()
     try:
-        slots = session.execute(select(MyTeamSlot)).scalars().all()
+        slots = session.execute(
+            select(MyTeamSlot).where(MyTeamSlot.user_id == user_id)
+        ).scalars().all()
         for s in slots:
             session.delete(s)
         session.commit()
@@ -247,16 +274,22 @@ def clear_team() -> dict:
 
 
 @router.post("/import-csv")
-async def import_csv(file: UploadFile = File(...)) -> dict:
+async def import_csv(
+    file: UploadFile = File(...),
+    user: dict = Depends(get_current_user),
+) -> dict:
     """Import team from CSV upload."""
+    user_id = user["user_id"]
     content = await file.read()
     text = content.decode("utf-8")
     reader = csv.DictReader(io.StringIO(text))
 
     session = get_session()
     try:
-        # Clear existing team
-        for existing in session.execute(select(MyTeamSlot)).scalars().all():
+        # Clear existing team for this user
+        for existing in session.execute(
+            select(MyTeamSlot).where(MyTeamSlot.user_id == user_id)
+        ).scalars().all():
             session.delete(existing)
 
         count = 0
@@ -277,6 +310,7 @@ async def import_csv(file: UploadFile = File(...)) -> dict:
                 session.flush()
 
             slot = MyTeamSlot(
+                user_id=user_id,
                 player_id=player.id,
                 position_slot=row.get("position_slot", f"BENCH{count + 1}").strip(),
                 is_captain=row.get("is_captain", "false").strip().lower() == "true",

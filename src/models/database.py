@@ -142,6 +142,7 @@ class MyTeamSlot(Base):
     __tablename__ = "my_team"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     player_id: Mapped[int] = mapped_column(ForeignKey("players.id"), index=True)
     position_slot: Mapped[str] = mapped_column(String(20))
     is_captain: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -150,6 +151,7 @@ class MyTeamSlot(Base):
     added_round: Mapped[Optional[int]] = mapped_column(Integer)
     added_price: Mapped[Optional[int]] = mapped_column(Integer)
 
+    user: Mapped["User"] = relationship()
     player: Mapped["Player"] = relationship(back_populates="team_slots")
 
 
@@ -157,6 +159,7 @@ class Trade(Base):
     __tablename__ = "trades"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     season: Mapped[int] = mapped_column(Integer)
     round: Mapped[int] = mapped_column(Integer)
     player_out_id: Mapped[int] = mapped_column(ForeignKey("players.id"))

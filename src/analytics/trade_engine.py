@@ -86,11 +86,15 @@ def _find_underperformers(
     season: int,
     round_num: int,
     threshold: float = 15.0,
+    user_id: Optional[int] = None,
 ) -> list[TradeOutCandidate]:
     """Find team players who are underperforming their breakeven."""
     session = get_session()
     try:
-        slots = session.execute(select(MyTeamSlot)).scalars().all()
+        query = select(MyTeamSlot)
+        if user_id is not None:
+            query = query.where(MyTeamSlot.user_id == user_id)
+        slots = session.execute(query).scalars().all()
     finally:
         session.close()
 
@@ -263,6 +267,7 @@ def suggest_trades(
     budget: int = 0,
     season: Optional[int] = None,
     max_trades: int = 2,
+    user_id: Optional[int] = None,
 ) -> list[TradeRecommendation]:
     """Generate trade recommendations.
 
@@ -271,6 +276,7 @@ def suggest_trades(
         budget: Available salary cap space (0 = no extra budget).
         season: Season year (defaults to config).
         max_trades: Max number of trades to suggest (default 2 per round).
+        user_id: Filter team by this user (required for multi-user).
 
     Returns:
         List of TradeRecommendation objects.
@@ -280,7 +286,7 @@ def suggest_trades(
     config = get_config()
     target_season = season or config.season
 
-    underperformers = _find_underperformers(target_season, round_num)
+    underperformers = _find_underperformers(target_season, round_num, user_id=user_id)
 
     if not underperformers:
         logger.info("No clear underperformers found on your team.")
@@ -288,9 +294,10 @@ def suggest_trades(
 
     session = get_session()
     try:
-        team_ids = set(
-            session.execute(select(MyTeamSlot.player_id)).scalars().all()
-        )
+        query = select(MyTeamSlot.player_id)
+        if user_id is not None:
+            query = query.where(MyTeamSlot.user_id == user_id)
+        team_ids = set(session.execute(query).scalars().all())
     finally:
         session.close()
 

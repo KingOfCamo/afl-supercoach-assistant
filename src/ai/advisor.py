@@ -30,8 +30,9 @@ logger = logging.getLogger(__name__)
 class SuperCoachAdvisor:
     """Claude-powered AFL SuperCoach advisor."""
 
-    def __init__(self) -> None:
+    def __init__(self, user_id: Optional[int] = None) -> None:
         self.config = get_config()
+        self.user_id = user_id
         if not self.config.ai.api_key:
             raise ValueError(
                 "ANTHROPIC_API_KEY not set. Add it to your .env file."
@@ -167,7 +168,7 @@ class SuperCoachAdvisor:
         """Generate AI-powered captain recommendation."""
         from src.analytics.captain import rank_captain_options
 
-        candidates = rank_captain_options(round_num, top_n=8)
+        candidates = rank_captain_options(round_num, top_n=8, user_id=self.user_id)
 
         if not candidates:
             return "No captain candidates available. Import your team and ensure data exists."
@@ -192,12 +193,13 @@ class SuperCoachAdvisor:
 
         session = get_session()
         try:
-            captain_slot = session.execute(
-                select(MyTeamSlot).where(MyTeamSlot.is_captain == True)  # noqa: E712
-            ).scalar_one_or_none()
-            vc_slot = session.execute(
-                select(MyTeamSlot).where(MyTeamSlot.is_vice_captain == True)  # noqa: E712
-            ).scalar_one_or_none()
+            cap_query = select(MyTeamSlot).where(MyTeamSlot.is_captain == True)  # noqa: E712
+            vc_query = select(MyTeamSlot).where(MyTeamSlot.is_vice_captain == True)  # noqa: E712
+            if self.user_id is not None:
+                cap_query = cap_query.where(MyTeamSlot.user_id == self.user_id)
+                vc_query = vc_query.where(MyTeamSlot.user_id == self.user_id)
+            captain_slot = session.execute(cap_query).scalar_one_or_none()
+            vc_slot = session.execute(vc_query).scalar_one_or_none()
 
             current = "None set"
             if captain_slot:
@@ -222,7 +224,7 @@ class SuperCoachAdvisor:
         """Generate AI-powered trade recommendations."""
         from src.analytics.trade_engine import suggest_trades
 
-        recommendations = suggest_trades(round_num)
+        recommendations = suggest_trades(round_num, user_id=self.user_id)
 
         trade_out_lines = []
         trade_in_lines = []
@@ -385,9 +387,10 @@ class SuperCoachAdvisor:
 
     def _build_team_summary(self, session: object) -> str:
         """Build a text summary of the user's current team with DFS stats."""
-        slots = session.execute(  # type: ignore[union-attr]
-            select(MyTeamSlot).order_by(MyTeamSlot.position_slot)
-        ).scalars().all()
+        query = select(MyTeamSlot).order_by(MyTeamSlot.position_slot)
+        if self.user_id is not None:
+            query = query.where(MyTeamSlot.user_id == self.user_id)
+        slots = session.execute(query).scalars().all()  # type: ignore[union-attr]
 
         if not slots:
             return ""
@@ -431,7 +434,10 @@ class SuperCoachAdvisor:
 
     def _build_recent_scores(self, session: object) -> str:
         """Build recent scores for all team players."""
-        slots = session.execute(select(MyTeamSlot)).scalars().all()  # type: ignore[union-attr]
+        query = select(MyTeamSlot)
+        if self.user_id is not None:
+            query = query.where(MyTeamSlot.user_id == self.user_id)
+        slots = session.execute(query).scalars().all()  # type: ignore[union-attr]
         if not slots:
             return ""
 

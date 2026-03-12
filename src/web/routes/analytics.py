@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import dataclasses
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 
 from src.models.database import Injury, MyTeamSlot, Player, get_session
 from src.utils.config import get_config
+from src.web.middleware.authenticate import get_current_user
 
 router = APIRouter()
 
@@ -17,6 +18,7 @@ router = APIRouter()
 def get_projections(
     round_num: int = Query(None, alias="round"),
     team_only: bool = Query(True),
+    user: dict = Depends(get_current_user),
 ) -> dict:
     """Get score projections for a round."""
     from src.analytics.projections import project_round
@@ -24,7 +26,7 @@ def get_projections(
     config = get_config()
     r = round_num or config.current_round
 
-    results = project_round(r, team_only=team_only, save=False)
+    results = project_round(r, team_only=team_only, save=False, user_id=user["user_id"])
 
     projections = []
     for p in results:
@@ -44,6 +46,7 @@ def get_projections(
 def get_captain(
     round_num: int = Query(None, alias="round"),
     top_n: int = Query(10),
+    user: dict = Depends(get_current_user),
 ) -> dict:
     """Get captain rankings."""
     from src.analytics.captain import rank_captain_options
@@ -51,7 +54,7 @@ def get_captain(
     config = get_config()
     r = round_num or config.current_round
 
-    candidates = rank_captain_options(r, top_n=top_n)
+    candidates = rank_captain_options(r, top_n=top_n, user_id=user["user_id"])
 
     return {
         "round": r,
@@ -63,6 +66,7 @@ def get_captain(
 def get_trades(
     round_num: int = Query(None, alias="round"),
     budget: int = Query(0),
+    user: dict = Depends(get_current_user),
 ) -> dict:
     """Get trade recommendations."""
     from src.analytics.trade_engine import suggest_trades
@@ -70,7 +74,7 @@ def get_trades(
     config = get_config()
     r = round_num or config.current_round
 
-    recommendations = suggest_trades(r, budget=budget)
+    recommendations = suggest_trades(r, budget=budget, user_id=user["user_id"])
 
     return {
         "round": r,
@@ -79,13 +83,16 @@ def get_trades(
 
 
 @router.get("/injuries")
-def get_injuries() -> dict:
+def get_injuries(user: dict = Depends(get_current_user)) -> dict:
     """Get injuries for team players."""
+    user_id = user["user_id"]
     session = get_session()
     try:
-        # Get team player IDs
+        # Get this user's team player IDs
         team_ids = set(
-            session.execute(select(MyTeamSlot.player_id)).scalars().all()
+            session.execute(
+                select(MyTeamSlot.player_id).where(MyTeamSlot.user_id == user_id)
+            ).scalars().all()
         )
 
         injuries = session.execute(

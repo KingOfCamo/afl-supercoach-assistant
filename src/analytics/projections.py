@@ -218,6 +218,7 @@ def project_round(
     season: Optional[int] = None,
     team_only: bool = False,
     save: bool = True,
+    user_id: Optional[int] = None,
 ) -> list[ProjectionResult]:
     """Batch project all players (or just your team) for a round.
 
@@ -226,6 +227,7 @@ def project_round(
         season: Season year (defaults to config).
         team_only: If True, only project players on your team.
         save: Whether to persist projections to DB.
+        user_id: Filter team by this user (required for multi-user team_only).
 
     Returns:
         List of ProjectionResults sorted by projected score descending.
@@ -238,11 +240,10 @@ def project_round(
     session = get_session()
     try:
         if team_only:
-            player_ids = (
-                session.execute(select(MyTeamSlot.player_id))
-                .scalars()
-                .all()
-            )
+            query = select(MyTeamSlot.player_id)
+            if user_id is not None:
+                query = query.where(MyTeamSlot.user_id == user_id)
+            player_ids = session.execute(query).scalars().all()
         else:
             score_pids = set(
                 session.execute(

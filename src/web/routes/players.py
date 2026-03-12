@@ -2,7 +2,7 @@ from __future__ import annotations
 
 """Player search and detail endpoints."""
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import desc, select
 
 from src.models.database import (
@@ -13,6 +13,7 @@ from src.models.database import (
     SupercoachScore,
     get_session,
 )
+from src.web.middleware.authenticate import get_current_user
 
 router = APIRouter()
 
@@ -21,11 +22,13 @@ router = APIRouter()
 def search_players(
     q: str = Query("", min_length=0),
     limit: int = Query(20, ge=1, le=100),
+    user: dict = Depends(get_current_user),
 ) -> dict:
     """Search players by name with autocomplete data."""
     if not q or len(q) < 2:
         return {"players": []}
 
+    user_id = user["user_id"]
     session = get_session()
     try:
         # Get players matching query
@@ -40,9 +43,11 @@ def search_players(
             .all()
         )
 
-        # Get current team player IDs
+        # Get current user's team player IDs
         team_ids = set(
-            session.execute(select(MyTeamSlot.player_id)).scalars().all()
+            session.execute(
+                select(MyTeamSlot.player_id).where(MyTeamSlot.user_id == user_id)
+            ).scalars().all()
         )
 
         results = []

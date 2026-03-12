@@ -15,6 +15,7 @@ from src.models.database import (
     Player,
     SupercoachScore,
     Trade,
+    User,
 )
 
 
@@ -123,11 +124,16 @@ def test_player_injury_relationship(db_session):
 
 def test_my_team_slot(db_session):
     """Should create team slots with captain/vc flags."""
+    user = User(email="test@test.com", password_hash="hash", display_name="Test")
+    db_session.add(user)
+    db_session.flush()
+
     player = Player(name="Captain Player", team="Test Team")
     db_session.add(player)
     db_session.flush()
 
     slot = MyTeamSlot(
+        user_id=user.id,
         player_id=player.id,
         position_slot="MID1",
         is_captain=True,

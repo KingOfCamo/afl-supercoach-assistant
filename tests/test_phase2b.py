@@ -15,6 +15,7 @@ from src.models.database import (
     MyTeamSlot,
     Player,
     SupercoachScore,
+    User,
 )
 
 runner = CliRunner()
@@ -42,6 +43,10 @@ def db_session():
 @pytest.fixture
 def sample_data(db_session):
     """Create sample player data with scores and fixtures."""
+    user = User(email="test@test.com", password_hash="hash", display_name="Test")
+    db_session.add(user)
+    db_session.flush()
+
     player = Player(name="Test Player", team="Melbourne", position="MID")
     db_session.add(player)
     db_session.flush()
@@ -100,6 +105,7 @@ def sample_data(db_session):
 
     # Add team slot
     slot = MyTeamSlot(
+        user_id=user.id,
         player_id=player.id,
         position_slot="MID1",
         is_captain=True,

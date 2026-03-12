@@ -73,6 +73,7 @@ def rank_captain_options(
     round_num: int,
     season: Optional[int] = None,
     top_n: int = 5,
+    user_id: Optional[int] = None,
 ) -> list[CaptainCandidate]:
     """Rank team players for captain selection.
 
@@ -80,6 +81,7 @@ def rank_captain_options(
         round_num: The round to pick captain for.
         season: Season year (defaults to config).
         top_n: Number of candidates to return.
+        user_id: Filter team by this user (required for multi-user).
 
     Returns:
         List of CaptainCandidates sorted by captain_score descending.
@@ -91,11 +93,10 @@ def rank_captain_options(
 
     session = get_session()
     try:
-        team_player_ids = (
-            session.execute(select(MyTeamSlot.player_id))
-            .scalars()
-            .all()
-        )
+        query = select(MyTeamSlot.player_id)
+        if user_id is not None:
+            query = query.where(MyTeamSlot.user_id == user_id)
+        team_player_ids = session.execute(query).scalars().all()
     finally:
         session.close()
 
