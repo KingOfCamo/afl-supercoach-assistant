@@ -971,15 +971,19 @@ select.input {
 
 /* Field player card */
 .field-card {
-    width: 118px;
+    width: 120px;
     background: var(--bg-card);
     border-radius: 10px;
-    padding: 8px 10px 6px;
+    padding: 20px 10px 8px;
     border-left: 3px solid var(--team-color, #94a3b8);
     position: relative;
     cursor: default;
     transition: transform 0.15s, box-shadow 0.15s;
     box-shadow: var(--shadow-sm);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    overflow: visible;
 }
 
 .field-card:hover {
@@ -999,8 +1003,8 @@ select.input {
 .field-card .fc-top {
     display: flex;
     align-items: center;
-    gap: 4px;
-    margin-bottom: 2px;
+    gap: 3px;
+    min-height: 16px;
 }
 
 .field-card .fc-name {
@@ -1010,19 +1014,20 @@ select.input {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    line-height: 1.3;
+    line-height: 1.2;
     flex: 1;
     min-width: 0;
 }
 
-/* Inline role badge (doesn't overlap name) */
+/* Inline role badge */
 .fc-role {
     flex-shrink: 0;
-    font-size: 8px;
+    font-size: 7px;
     font-weight: 800;
-    padding: 1px 4px;
+    padding: 2px 4px;
     border-radius: 3px;
     line-height: 1;
+    letter-spacing: 0.3px;
 }
 .fc-role-c {
     background: var(--sc-gold);
@@ -1035,7 +1040,7 @@ select.input {
 
 .field-card .fc-score-row {
     text-align: center;
-    margin: 3px 0;
+    padding: 2px 0;
 }
 
 .field-card .fc-score {
@@ -1043,13 +1048,13 @@ select.input {
     font-weight: 800;
     color: var(--text-primary);
     letter-spacing: -0.5px;
+    line-height: 1.1;
 }
 
 .field-card .fc-meta {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-top: 2px;
 }
 
 .field-card .fc-team {
@@ -1115,11 +1120,15 @@ select.input {
 .bench-card {
     background: var(--bg-card);
     border-radius: 8px;
-    padding: 6px 8px;
+    padding: 7px 8px 7px 8px;
     border-left: 3px solid var(--team-color, #94a3b8);
     position: relative;
     transition: transform 0.1s, box-shadow 0.1s;
     box-shadow: var(--shadow-sm);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    overflow: visible;
 }
 
 .bench-card:hover {
@@ -1131,6 +1140,8 @@ select.input {
     display: flex;
     align-items: center;
     gap: 3px;
+    min-height: 14px;
+    padding-right: 14px; /* space for lineup icon */
 }
 
 .bench-card .fc-name {
@@ -1142,39 +1153,43 @@ select.input {
     text-overflow: ellipsis;
     flex: 1;
     min-width: 0;
+    line-height: 1.2;
 }
 
 .bench-card .fc-meta {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    margin-top: 2px;
+    gap: 6px;
 }
 
 .bench-card .fc-team {
     font-size: 8px;
     color: var(--text-muted);
     text-transform: uppercase;
+    flex-shrink: 0;
 }
 
 .bench-card .fc-salary {
     font-size: 8px;
     color: var(--text-muted);
+    flex-shrink: 0;
 }
 
 .bench-card .fc-score {
     font-size: 11px;
     font-weight: 700;
     color: var(--accent-blue);
+    flex-shrink: 0;
+    margin-left: auto;
 }
 
-/* Emergency badge */
+/* Emergency badge on bench card */
 .bench-card .fc-emg {
     position: absolute;
-    top: -3px;
-    right: -3px;
-    width: 15px;
-    height: 15px;
+    top: -4px;
+    right: -4px;
+    width: 16px;
+    height: 16px;
     border-radius: 50%;
     background: var(--accent-green);
     font-size: 8px;
@@ -1184,6 +1199,7 @@ select.input {
     align-items: center;
     justify-content: center;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    z-index: 3;
 }
 
 /* ——— Salary Cap Bar ——— */
@@ -1218,9 +1234,9 @@ select.input {
 
 /* ——— Empty Slot Placeholder Cards ——— */
 .field-card-empty {
-    width: 112px;
+    width: 120px;
     padding: 8px 6px;
-    border-radius: 8px;
+    border-radius: 10px;
     border: 2px dashed var(--border-hover);
     background: transparent;
     display: flex;
@@ -1228,7 +1244,7 @@ select.input {
     align-items: center;
     justify-content: center;
     gap: 4px;
-    min-height: 72px;
+    min-height: 76px;
     cursor: pointer;
     transition: border-color 0.2s, background 0.2s;
 }
@@ -1284,14 +1300,14 @@ select.input {
 /* ——— Remove Button on Cards ——— */
 .fc-remove {
     position: absolute;
-    top: -4px;
-    right: -4px;
-    width: 18px;
-    height: 18px;
+    top: 2px;
+    right: 2px;
+    width: 16px;
+    height: 16px;
     border-radius: 50%;
-    background: var(--accent-red);
+    background: rgba(239, 68, 68, 0.85);
     color: white;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 700;
     border: none;
     cursor: pointer;
@@ -1299,12 +1315,10 @@ select.input {
     align-items: center;
     justify-content: center;
     line-height: 1;
-    z-index: 5;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+    z-index: 6;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
     padding: 0;
 }
-.field-card { position: relative; }
-.bench-card { position: relative; }
 .field-card:hover .fc-remove,
 .bench-card:hover .fc-remove {
     display: flex;
@@ -1386,41 +1400,40 @@ select.input {
 }
 
 /* ——— Lineup Status Indicators ——— */
-/* Lineup status indicator — clear, distinct icons */
+/* Lineup status — top-left badge, never overlaps name/score/meta */
 .fc-lineup-status {
     position: absolute;
-    bottom: 3px;
+    top: 3px;
     left: 3px;
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: 700;
     line-height: 1;
-    z-index: 2;
+    z-index: 4;
 }
 
-/* ✓ Named in squad — green tick, no circle */
+/* ✓ Named in squad — small green tick */
 .fc-lineup-status.named {
     color: #059669;
-    font-size: 14px;
-    filter: drop-shadow(0 1px 1px rgba(0,0,0,0.15));
+    font-size: 12px;
 }
 
 /* ✓ Played/complete — filled green circle with white tick */
 .fc-lineup-status.played {
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    height: 14px;
     border-radius: 50%;
     background: #059669;
     color: white;
-    font-size: 11px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    font-size: 9px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.2);
 }
 
 /* ● Live — blue pulsing dot */
 .fc-lineup-status.playing {
-    width: 12px;
-    height: 12px;
+    width: 10px;
+    height: 10px;
     border-radius: 50%;
     background: var(--accent-blue);
     color: transparent;
@@ -1430,33 +1443,31 @@ select.input {
 }
 @keyframes pulse-live-ring {
     0%, 100% { box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3); }
-    50% { box-shadow: 0 0 0 5px rgba(59, 130, 246, 0.1); }
+    50% { box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1); }
 }
 
-/* ✕ Not playing / DNP — red cross, no circle */
+/* ✕ Not playing / DNP — red cross */
 .fc-lineup-status.not-playing {
     color: var(--accent-red);
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 800;
-    filter: drop-shadow(0 1px 1px rgba(0,0,0,0.15));
 }
 
 /* ⚠ Injured — orange triangle */
 .fc-lineup-status.injured {
     color: var(--accent-orange);
-    font-size: 13px;
-    filter: drop-shadow(0 1px 1px rgba(0,0,0,0.15));
+    font-size: 11px;
 }
 
 /* E Match-day emergency — orange outlined E */
 .fc-lineup-status.match-emergency {
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    height: 14px;
     border-radius: 50%;
     border: 2px solid var(--accent-orange);
     background: transparent;
     color: var(--accent-orange);
-    font-size: 9px;
+    font-size: 8px;
 }
 
 /* Injury tooltip on card hover */
@@ -1481,11 +1492,13 @@ select.input {
 }
 
 /* ——— Live Score Overlay on Cards ——— */
+/* Positioned at top-right inside the padding area, below remove button */
 .fc-live-overlay {
     position: absolute;
-    top: 2px;
-    right: 2px;
+    top: 3px;
+    right: 3px;
     pointer-events: none;
+    z-index: 3;
 }
 .fc-live-score {
     display: inline-block;
@@ -1867,15 +1880,19 @@ select.input {
 /* Responsive — narrower cards on small screens */
 @media (max-width: 1200px) {
     .field-card, .field-card-empty {
-        width: 95px;
+        width: 100px;
+        padding: 18px 6px 6px;
     }
     .field-card .fc-name {
         font-size: 10px;
     }
     .field-card .fc-score {
-        font-size: 10px;
+        font-size: 14px;
     }
     .field-bench {
-        width: 115px;
+        width: 120px;
+    }
+    .bench-card .fc-name {
+        font-size: 9px;
     }
 }
