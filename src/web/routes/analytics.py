@@ -87,11 +87,43 @@ def get_live(
     round_num: int = Query(None, alias="round"),
     user: dict = Depends(get_current_user),
 ) -> dict:
-    """Get live scoring summary for a round."""
+    """Get live scoring summary for a round.
+
+    Auto-detects the active round: if current_round has no scores,
+    falls back to Opening Round (0) which plays before Round 1.
+    """
     from src.analytics.live_scores import get_live_round
+    from src.models.database import SupercoachScore
 
     config = get_config()
     r = round_num or config.current_round
+
+    # If requested round has no scores, check if Opening Round (0) does
+    if r >= 1:
+        session = get_session()
+        try:
+            from sqlalchemy import func
+            count = session.execute(
+                select(func.count(SupercoachScore.id)).where(
+                    SupercoachScore.season == config.season,
+                    SupercoachScore.round == r,
+                    SupercoachScore.score.isnot(None),
+                )
+            ).scalar() or 0
+
+            if count == 0:
+                # Check Opening Round
+                count_r0 = session.execute(
+                    select(func.count(SupercoachScore.id)).where(
+                        SupercoachScore.season == config.season,
+                        SupercoachScore.round == 0,
+                        SupercoachScore.score.isnot(None),
+                    )
+                ).scalar() or 0
+                if count_r0 > 0:
+                    r = 0  # Use Opening Round data
+        finally:
+            session.close()
 
     summary = get_live_round(r, user_id=user["user_id"])
 

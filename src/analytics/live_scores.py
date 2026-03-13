@@ -20,6 +20,7 @@ from sqlalchemy import desc, select
 
 from src.models.database import (
     Fixture,
+    LineupStatus,
     MyTeamSlot,
     Player,
     SupercoachScore,
@@ -134,6 +135,18 @@ def get_live_round(
             match_status = team_status.get(norm_team, "upcoming")
             opponent = team_opponent.get(norm_team)
 
+            # Fallback: get opponent from lineup data if no fixtures
+            if opponent is None:
+                lineup_row = session.execute(
+                    select(LineupStatus).where(
+                        LineupStatus.player_id == player.id,
+                        LineupStatus.season == target_season,
+                        LineupStatus.round == round_num,
+                    )
+                ).scalar_one_or_none()
+                if lineup_row and lineup_row.opponent:
+                    opponent = lineup_row.opponent
+
             # Get score for this round (if available)
             score_row = session.execute(
                 select(SupercoachScore)
@@ -145,6 +158,11 @@ def get_live_round(
             ).scalar_one_or_none()
 
             live_score = score_row.score if score_row and score_row.score is not None else None
+
+            # If we have a score but no fixture data, infer match status
+            # (handles Opening Round / missing Squiggle data)
+            if live_score is not None and match_status == "upcoming":
+                match_status = "complete"
 
             # Get projected final from projections or rolling avg
             from src.analytics.projections import project_player
