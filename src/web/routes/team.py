@@ -12,6 +12,7 @@ from sqlalchemy import desc, select
 
 from src.models.database import (
     DfsPlayerStats,
+    Injury,
     MyTeamSlot,
     Player,
     SupercoachScore,
@@ -109,6 +110,14 @@ def get_team(user: dict = Depends(get_current_user)) -> dict:
             valid = [s.score for s in scores if s.score is not None]
             avg = sum(valid) / len(valid) if valid else 0
 
+            # Active injury
+            injury = session.execute(
+                select(Injury)
+                .where(Injury.player_id == player.id)
+                .order_by(desc(Injury.updated_at))
+                .limit(1)
+            ).scalar_one_or_none()
+
             salary = (latest.price if latest and latest.price else None) or (
                 dfs.salary if dfs else None
             )
@@ -130,6 +139,12 @@ def get_team(user: dict = Depends(get_current_user)) -> dict:
                 "sc_avg": round(dfs.sc_avg, 1) if dfs and dfs.sc_avg else None,
                 "last_score": latest.score if latest else None,
                 "season_avg": round(avg, 1) if avg else None,
+                "injury": {
+                    "type": injury.injury_type,
+                    "return": injury.estimated_return,
+                    "status": injury.status,
+                } if injury else None,
+                "projected_score": latest.projected_score if latest else None,
             })
 
         return {

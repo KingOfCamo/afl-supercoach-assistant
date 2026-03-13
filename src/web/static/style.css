@@ -1329,6 +1329,91 @@ select.input {
     margin: 4px 0;
 }
 
+/* ——— Score View Toggle ——— */
+.score-view-toggle {
+    display: flex;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    margin-right: 8px;
+}
+.svt-btn {
+    padding: 4px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s;
+    border-right: 1px solid var(--border);
+}
+.svt-btn:last-child { border-right: none; }
+.svt-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+.svt-btn.active {
+    background: var(--accent-blue);
+    color: white;
+}
+
+/* ——— Lineup Status Indicators ——— */
+.fc-lineup-status {
+    position: absolute;
+    bottom: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 1;
+}
+.fc-lineup-status.playing {
+    background: var(--accent-green);
+    color: white;
+}
+.fc-lineup-status.not-playing {
+    background: transparent;
+    border: 2px solid var(--accent-red);
+    color: var(--accent-red);
+    width: 12px;
+    height: 12px;
+}
+.fc-lineup-status.injured {
+    background: var(--accent-red);
+    color: white;
+    font-size: 8px;
+}
+.fc-lineup-status.emg-named {
+    background: var(--accent-orange, #f59e0b);
+    color: white;
+    font-size: 8px;
+}
+
+/* Injury tooltip on card hover */
+.fc-injury-tooltip {
+    display: none;
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--accent-red);
+    color: white;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 9px;
+    white-space: nowrap;
+    z-index: 10;
+    margin-bottom: 4px;
+}
+.field-card:hover .fc-injury-tooltip,
+.bench-card:hover .fc-injury-tooltip {
+    display: block;
+}
+
 /* ——— Live Score Overlay on Cards ——— */
 .fc-live-overlay {
     position: absolute;

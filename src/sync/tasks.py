@@ -24,7 +24,7 @@ SOURCE_FANFOOTY = "fanfooty"
 SOURCE_SQUIGGLE = "squiggle"
 
 
-async def sync_supercoach_players() -> None:
+async def sync_supercoach_players(force: bool = False) -> None:
     """Sync player data from the official SuperCoach API (round=0)."""
     source = SOURCE_SUPERCOACH_API
     # Always runs on 6h interval — no skip logic needed
@@ -42,10 +42,10 @@ async def sync_supercoach_players() -> None:
         logger.error("SuperCoach API sync failed: %s", e, exc_info=True)
 
 
-async def sync_supercoach_round_data() -> None:
+async def sync_supercoach_round_data(force: bool = False) -> None:
     """Sync per-round data (scores, prices, breakevens) from SuperCoach API."""
     source = SOURCE_SUPERCOACH_ROUND
-    if should_skip(source, 4.0):
+    if not force and should_skip(source, 4.0):
         logger.debug("Skipping %s — not match day and ran recently", source)
         return
     record_start(source)
@@ -63,10 +63,10 @@ async def sync_supercoach_round_data() -> None:
         logger.error("SuperCoach round sync failed: %s", e, exc_info=True)
 
 
-async def sync_footywire_scores() -> None:
+async def sync_footywire_scores(force: bool = False) -> None:
     """Scrape SuperCoach scores from FootyWire for current round."""
     source = SOURCE_FOOTYWIRE_SCORES
-    if should_skip(source, 4.0):
+    if not force and should_skip(source, 4.0):
         logger.debug("Skipping %s — not match day and ran recently", source)
         return
     record_start(source)
@@ -88,7 +88,7 @@ async def sync_footywire_scores() -> None:
         logger.error("FootyWire scores failed: %s", e, exc_info=True)
 
 
-async def sync_footywire_injuries() -> None:
+async def sync_footywire_injuries(force: bool = False) -> None:
     """Scrape current injury list from FootyWire."""
     source = SOURCE_FOOTYWIRE_INJURIES
     # Always runs on 4h interval — no skip logic needed
@@ -108,7 +108,7 @@ async def sync_footywire_injuries() -> None:
         logger.error("FootyWire injuries failed: %s", e, exc_info=True)
 
 
-async def sync_aflcomau_injuries() -> None:
+async def sync_aflcomau_injuries(force: bool = False) -> None:
     """Scrape current injury list from AFL.com.au (official source)."""
     source = SOURCE_AFLCOMAU_INJURIES
     # Runs on 4h interval — no skip logic needed
@@ -128,10 +128,10 @@ async def sync_aflcomau_injuries() -> None:
         logger.error("AFL.com.au injuries failed: %s", e, exc_info=True)
 
 
-async def sync_fanfooty() -> None:
+async def sync_fanfooty(force: bool = False) -> None:
     """Scrape SuperCoach scores from FanFooty for current round."""
     source = SOURCE_FANFOOTY
-    if should_skip(source, 4.0):
+    if not force and should_skip(source, 4.0):
         logger.debug("Skipping %s — not match day and ran recently", source)
         return
     record_start(source)
@@ -151,10 +151,10 @@ async def sync_fanfooty() -> None:
         logger.error("FanFooty scores failed: %s", e, exc_info=True)
 
 
-async def sync_squiggle() -> None:
+async def sync_squiggle(force: bool = False) -> None:
     """Scrape fixtures from Squiggle API."""
     source = SOURCE_SQUIGGLE
-    if should_skip(source, 6.0):
+    if not force and should_skip(source, 6.0):
         logger.debug("Skipping %s — not match day and ran recently", source)
         return
     record_start(source)
@@ -174,7 +174,7 @@ async def sync_squiggle() -> None:
         logger.error("Squiggle fixtures failed: %s", e, exc_info=True)
 
 
-async def sync_all() -> Dict[str, str]:
+async def sync_all(force: bool = False) -> Dict[str, str]:
     """Run all sync tasks sequentially. Used for manual trigger."""
     results: Dict[str, str] = {}
     tasks = [
@@ -188,7 +188,7 @@ async def sync_all() -> Dict[str, str]:
     ]
     for name, task_fn in tasks:
         try:
-            await task_fn()
+            await task_fn(force=force)
             results[name] = "success"
         except Exception as e:
             results[name] = f"error: {e}"

@@ -166,6 +166,7 @@ const App = {
         _captainMode: null, // null, 'captain', or 'vc'
         _emergencyMode: false,
         _emergencyPicks: [], // player_ids in order
+        _scoreView: 'live', // 'live', 'projected', 'average'
         _liveScoresExpanded: false,
         _liveRefreshInterval: null,
         SALARY_CAP: 10000000,
@@ -584,6 +585,58 @@ const App = {
                 vcName.textContent = 'Select Vice Captain';
                 vcBtn.classList.remove('has-player');
             }
+        },
+
+        // --- Score View Toggle ---
+        setScoreView(view) {
+            this._scoreView = view;
+            document.querySelectorAll('.svt-btn').forEach(b => {
+                b.classList.toggle('active', b.dataset.view === view);
+            });
+            // Re-render cards with new score view
+            if (this._lastTeamData) this.renderTeam(this._lastTeamData);
+        },
+
+        _getDisplayScore(s) {
+            const live = this._liveData;
+            if (this._scoreView === 'live' && live && live.players) {
+                const lp = live.players.find(p => p.player_id === s.player_id);
+                if (lp && lp.live_score != null) return lp.live_score;
+                if (lp && lp.projected_final != null) return '~' + Math.round(lp.projected_final);
+            }
+            if (this._scoreView === 'projected') {
+                if (s.projected_score != null) return s.projected_score;
+                if (s.sc_avg != null) return '~' + s.sc_avg;
+                return '-';
+            }
+            if (this._scoreView === 'average') {
+                return s.season_avg != null ? s.season_avg : (s.sc_avg != null ? s.sc_avg : '-');
+            }
+            // Default: last score
+            return s.last_score != null ? s.last_score : (s.sc_avg != null ? s.sc_avg : 0);
+        },
+
+        _getLineupStatus(s) {
+            // Check injury
+            if (s.injury) {
+                return { status: 'injured', label: '!', tooltip: `${s.injury.type || 'Injured'} — ${s.injury.return || 'TBD'}` };
+            }
+            // Check live data for match status
+            if (this._liveData && this._liveData.players) {
+                const lp = this._liveData.players.find(p => p.player_id === s.player_id);
+                if (lp) {
+                    if (lp.match_status === 'complete' && lp.live_score != null) {
+                        return { status: 'playing', label: '✓', tooltip: 'Played' };
+                    }
+                    if (lp.match_status === 'in_progress' && lp.live_score != null) {
+                        return { status: 'playing', label: '✓', tooltip: 'Playing now' };
+                    }
+                    if (lp.match_status === 'complete' && lp.live_score == null) {
+                        return { status: 'not-playing', label: '', tooltip: 'Did not play' };
+                    }
+                }
+            }
+            return null; // Upcoming or unknown
         },
 
         // --- Live Scores ---
@@ -1193,7 +1246,7 @@ const App = {
             const teamColor = TEAM_COLORS[s.team] || '#444';
             const teamAbbr = TEAM_ABBREVS[s.team] || (s.team || '').substring(0, 3).toUpperCase();
             const salary = s.salary ? `$${(s.salary / 1000).toFixed(0)}k` : '';
-            const score = s.last_score != null ? s.last_score : (s.sc_avg != null ? s.sc_avg : 0);
+            const score = this._getDisplayScore(s);
             const displayName = this._abbreviateName(s.player_name);
             const posLabel = s.position ? s.position.replace('/', ' | ') : '';
 
@@ -1219,6 +1272,15 @@ const App = {
             html += `<span class="fc-salary">${salary}</span>`;
             html += '</div>';
 
+            // Lineup status indicator
+            const lineup = this._getLineupStatus(s);
+            if (lineup) {
+                html += `<div class="fc-lineup-status ${lineup.status}" title="${this._esc(lineup.tooltip)}">${lineup.label}</div>`;
+                if (lineup.status === 'injured') {
+                    html += `<div class="fc-injury-tooltip">${this._esc(lineup.tooltip)}</div>`;
+                }
+            }
+
             html += '</div>';
             return html;
         },
@@ -1227,7 +1289,7 @@ const App = {
             const teamColor = TEAM_COLORS[s.team] || '#444';
             const teamAbbr = TEAM_ABBREVS[s.team] || (s.team || '').substring(0, 3).toUpperCase();
             const salary = s.salary ? `$${(s.salary / 1000).toFixed(0)}k` : '';
-            const score = s.last_score != null ? s.last_score : (s.sc_avg != null ? s.sc_avg : 0);
+            const score = this._getDisplayScore(s);
             const displayName = this._abbreviateName(s.player_name);
 
             let selectable = this._captainMode ? ' captain-selectable' : '';
@@ -1262,6 +1324,15 @@ const App = {
             html += `<span class="fc-team">${this._esc(teamAbbr)}</span>`;
             html += `<span class="fc-salary">${salary}</span>`;
             html += '</div>';
+
+            // Lineup status indicator
+            const lineup = this._getLineupStatus(s);
+            if (lineup) {
+                html += `<div class="fc-lineup-status ${lineup.status}" title="${this._esc(lineup.tooltip)}">${lineup.label}</div>`;
+                if (lineup.status === 'injured') {
+                    html += `<div class="fc-injury-tooltip">${this._esc(lineup.tooltip)}</div>`;
+                }
+            }
 
             html += '</div>';
             return html;

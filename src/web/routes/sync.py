@@ -68,8 +68,9 @@ async def trigger_sync(
     if source:
         if source not in task_map:
             return {"error": f"Unknown source: {source}. Valid: {list(task_map.keys())}"}
-        background_tasks.add_task(task_map[source])
+        # Manual triggers always bypass should_skip
+        background_tasks.add_task(task_map[source], force=True)
         return {"message": f"Triggered sync for {source}", "status": "accepted"}
     else:
-        background_tasks.add_task(sync_all)
+        background_tasks.add_task(sync_all, force=True)
         return {"message": "Triggered full sync of all sources", "status": "accepted"}

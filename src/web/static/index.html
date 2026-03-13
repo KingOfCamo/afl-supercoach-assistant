@@ -60,6 +60,11 @@
                         <button class="btn" onclick="App.Team.importCSV()">&#128193; Import CSV</button>
                         <button class="btn btn-danger" onclick="App.Team.clearTeam()">&#128465; Clear Team</button>
                         <input type="file" id="csv-upload" accept=".csv" style="display:none" onchange="App.Team.handleCSV(event)">
+                        <div class="score-view-toggle" id="score-view-toggle">
+                            <button class="svt-btn active" data-view="live" onclick="App.Team.setScoreView('live')">Live</button>
+                            <button class="svt-btn" data-view="projected" onclick="App.Team.setScoreView('projected')">Proj</button>
+                            <button class="svt-btn" data-view="average" onclick="App.Team.setScoreView('average')">Avg</button>
+                        </div>
                         <div class="salary-counter">
                             <span id="team-count">0</span>/30 players &nbsp;|&nbsp;
                             Salary: <strong id="salary-total">$0</strong>
