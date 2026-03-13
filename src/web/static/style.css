@@ -1386,56 +1386,76 @@ select.input {
 }
 
 /* ——— Lineup Status Indicators ——— */
-/* Lineup status indicator — SuperCoach style */
+/* Lineup status indicator — clear, distinct icons */
 .fc-lineup-status {
     position: absolute;
     bottom: 3px;
     left: 3px;
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 10px;
     font-weight: 700;
     line-height: 1;
     z-index: 2;
 }
-/* ✓ Green tick — named in squad */
+
+/* ✓ Named in squad — green tick, no circle */
 .fc-lineup-status.named {
-    background: var(--accent-green);
-    color: white;
+    color: #059669;
+    font-size: 14px;
+    filter: drop-shadow(0 1px 1px rgba(0,0,0,0.15));
 }
-/* ✓ Green tick — played/complete */
+
+/* ✓ Played/complete — filled green circle with white tick */
 .fc-lineup-status.played {
-    background: var(--accent-green);
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #059669;
     color: white;
+    font-size: 11px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
 }
-/* ● Blue pulse — currently playing */
+
+/* ● Live — blue pulsing dot */
 .fc-lineup-status.playing {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
     background: var(--accent-blue);
-    color: white;
-    animation: pulse-live 2s ease-in-out infinite;
+    color: transparent;
+    font-size: 0;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+    animation: pulse-live-ring 1.5s ease-in-out infinite;
 }
-/* ✕ Red outlined circle — not selected / DNP */
+@keyframes pulse-live-ring {
+    0%, 100% { box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3); }
+    50% { box-shadow: 0 0 0 5px rgba(59, 130, 246, 0.1); }
+}
+
+/* ✕ Not playing / DNP — red cross, no circle */
 .fc-lineup-status.not-playing {
-    background: transparent;
-    border: 2px solid var(--accent-red);
     color: var(--accent-red);
-    width: 14px;
-    height: 14px;
+    font-size: 14px;
+    font-weight: 800;
+    filter: drop-shadow(0 1px 1px rgba(0,0,0,0.15));
 }
-/* ⚠ Red — injured */
+
+/* ⚠ Injured — orange triangle */
 .fc-lineup-status.injured {
-    background: var(--accent-red);
-    color: white;
-    font-size: 9px;
+    color: var(--accent-orange);
+    font-size: 13px;
+    filter: drop-shadow(0 1px 1px rgba(0,0,0,0.15));
 }
-/* E orange — named as match-day emergency */
+
+/* E Match-day emergency — orange outlined E */
 .fc-lineup-status.match-emergency {
-    background: var(--accent-orange);
-    color: white;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 2px solid var(--accent-orange);
+    background: transparent;
+    color: var(--accent-orange);
     font-size: 9px;
 }
 

@@ -345,14 +345,12 @@ def sync_round_from_supercoach_api(season: int = 2026, round_num: int = 1) -> di
             if not player_stats:
                 continue
 
-            # Find stats for this round, or use latest entry
+            # Find stats for EXACTLY this round — no fallback to other rounds
             round_stats = None
             for ps in player_stats:
                 if ps.get("round") == round_num:
                     round_stats = ps
                     break
-            if round_stats is None:
-                round_stats = player_stats[0] if player_stats else None
             if round_stats is None:
                 continue
 

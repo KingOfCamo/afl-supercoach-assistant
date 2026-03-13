@@ -58,13 +58,12 @@ async def sync_supercoach_round_data(force: bool = False) -> None:
 
         config = get_config()
         total_updated = 0
-        # Sync all rounds from Opening Round (0) through current round
-        for rnd in range(0, config.current_round + 1):
-            result = await asyncio.to_thread(
-                sync_round_from_supercoach_api, config.season, rnd
-            )
-            total_updated += result.get("updated", 0)
-            logger.info("SuperCoach round %d sync: %s", rnd, result)
+        # Sync current round (SC API reassigns round numbers as season progresses)
+        result = await asyncio.to_thread(
+            sync_round_from_supercoach_api, config.season, config.current_round
+        )
+        total_updated += result.get("updated", 0)
+        logger.info("SuperCoach round %d sync: %s", config.current_round, result)
         record_success(source, total_updated)
     except Exception as e:
         record_error(source, str(e))
