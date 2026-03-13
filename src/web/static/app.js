@@ -617,26 +617,49 @@ const App = {
         },
 
         _getLineupStatus(s) {
-            // Check injury
+            // Priority 1: Injury
             if (s.injury) {
-                return { status: 'injured', label: '!', tooltip: `${s.injury.type || 'Injured'} — ${s.injury.return || 'TBD'}` };
+                return {
+                    status: 'injured',
+                    label: '⚠',
+                    tooltip: `${s.injury.type || 'Injured'} — ${s.injury.return || 'TBD'}`,
+                };
             }
-            // Check live data for match status
+
+            // Priority 2: AFL.com.au lineup announcement
+            if (s.lineup_status === 'NAMED') {
+                const opp = s.lineup_opponent ? ` v ${s.lineup_opponent}` : '';
+                return {
+                    status: 'named',
+                    label: '✓',
+                    tooltip: `Named${opp}${s.lineup_position ? ' (' + s.lineup_position + ')' : ''}`,
+                };
+            }
+            if (s.lineup_status === 'EMERGENCY') {
+                return {
+                    status: 'match-emergency',
+                    label: 'E',
+                    tooltip: `Named as match-day emergency`,
+                };
+            }
+
+            // Priority 3: Live match data
             if (this._liveData && this._liveData.players) {
                 const lp = this._liveData.players.find(p => p.player_id === s.player_id);
                 if (lp) {
                     if (lp.match_status === 'complete' && lp.live_score != null) {
-                        return { status: 'playing', label: '✓', tooltip: 'Played' };
+                        return { status: 'played', label: '✓', tooltip: `Played — ${lp.live_score}pts` };
                     }
                     if (lp.match_status === 'in_progress' && lp.live_score != null) {
-                        return { status: 'playing', label: '✓', tooltip: 'Playing now' };
+                        return { status: 'playing', label: '●', tooltip: `Live — ${lp.live_score}pts` };
                     }
                     if (lp.match_status === 'complete' && lp.live_score == null) {
-                        return { status: 'not-playing', label: '', tooltip: 'Did not play' };
+                        return { status: 'not-playing', label: '✕', tooltip: 'Did not play (DNP)' };
                     }
                 }
             }
-            return null; // Upcoming or unknown
+
+            return null; // No lineup data yet
         },
 
         // --- Live Scores ---
@@ -779,14 +802,17 @@ const App = {
             btn.textContent = 'Syncing...';
             btn.disabled = true;
             try {
-                // Sync fixtures first (Squiggle), then scores (SuperCoach API)
-                // FootyWire & FanFooty are down for 2026 — skip them
-                await authFetch(`${API_BASE}/api/sync/trigger?source=squiggle`, {method: 'POST'});
-                await authFetch(`${API_BASE}/api/sync/trigger?source=supercoach_round`, {method: 'POST'});
+                // Sync scores + lineups in parallel
+                await Promise.all([
+                    authFetch(`${API_BASE}/api/sync/trigger?source=supercoach_round`, {method: 'POST'}),
+                    authFetch(`${API_BASE}/api/sync/trigger?source=afl_lineups`, {method: 'POST'}),
+                ]);
                 // Wait for sync to complete
-                await new Promise(r => setTimeout(r, 6000));
-                await this.loadLiveScores();
-                await this.loadTeam();
+                await new Promise(r => setTimeout(r, 8000));
+                await Promise.all([
+                    this.loadLiveScores(),
+                    this.loadTeam(),
+                ]);
             } catch (e) {
                 console.error('Score sync failed:', e);
             } finally {

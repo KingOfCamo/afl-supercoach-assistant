@@ -13,6 +13,7 @@ from sqlalchemy import desc, select
 from src.models.database import (
     DfsPlayerStats,
     Injury,
+    LineupStatus,
     MyTeamSlot,
     Player,
     SupercoachScore,
@@ -118,6 +119,17 @@ def get_team(user: dict = Depends(get_current_user)) -> dict:
                 .limit(1)
             ).scalar_one_or_none()
 
+            # Lineup status for current round
+            from src.utils.config import get_config
+            config = get_config()
+            lineup = session.execute(
+                select(LineupStatus).where(
+                    LineupStatus.player_id == player.id,
+                    LineupStatus.season == config.season,
+                    LineupStatus.round == config.current_round,
+                )
+            ).scalar_one_or_none()
+
             salary = (latest.price if latest and latest.price else None) or (
                 dfs.salary if dfs else None
             )
@@ -145,6 +157,9 @@ def get_team(user: dict = Depends(get_current_user)) -> dict:
                     "status": injury.status,
                 } if injury else None,
                 "projected_score": latest.projected_score if latest else None,
+                "lineup_status": lineup.status if lineup else None,
+                "lineup_position": lineup.match_position if lineup else None,
+                "lineup_opponent": lineup.opponent if lineup else None,
             })
 
         return {

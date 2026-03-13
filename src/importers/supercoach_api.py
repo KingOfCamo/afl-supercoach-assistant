@@ -356,9 +356,10 @@ def sync_round_from_supercoach_api(season: int = 2026, round_num: int = 1) -> di
             if round_stats is None:
                 continue
 
-            score = round_stats.get("score")
+            # SC API uses 'points' not 'score', and 'ba' for breakeven
+            score = round_stats.get("points")
             price = round_stats.get("price")
-            breakeven = round_stats.get("breakeven")
+            breakeven = round_stats.get("breakeven") or round_stats.get("ba")
 
             # Skip if no useful data
             if score is None and price is None and breakeven is None:

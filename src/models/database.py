@@ -156,6 +156,28 @@ class MyTeamSlot(Base):
     player: Mapped["Player"] = relationship(back_populates="team_slots")
 
 
+class LineupStatus(Base):
+    """Tracks whether a player is named, emergency, or omitted for a given round."""
+    __tablename__ = "lineup_status"
+    __table_args__ = (
+        UniqueConstraint(
+            "player_id", "season", "round", name="uq_lineup_player_season_round"
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    player_id: Mapped[int] = mapped_column(ForeignKey("players.id"), index=True)
+    season: Mapped[int] = mapped_column(Integer)
+    round: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(20))  # NAMED, EMERGENCY, OMITTED
+    match_position: Mapped[Optional[str]] = mapped_column(String(20))  # BPL, FB, INT, EMERG etc.
+    match_id: Mapped[Optional[str]] = mapped_column(String(50))  # AFL provider ID
+    opponent: Mapped[Optional[str]] = mapped_column(String(50))
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    player: Mapped["Player"] = relationship()
+
+
 class Trade(Base):
     __tablename__ = "trades"
 
