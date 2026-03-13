@@ -42,8 +42,13 @@ def get_sync_status() -> dict:
 async def trigger_sync(
     background_tasks: BackgroundTasks,
     source: Optional[str] = Query(None, description="Specific source to sync, or all"),
+    wait: bool = Query(False, description="Wait for sync to complete before responding"),
 ) -> dict:
-    """Manually trigger a data sync. Runs in background."""
+    """Manually trigger a data sync.
+
+    With wait=true, runs synchronously and returns results.
+    With wait=false (default), runs in background.
+    """
     from src.sync.tasks import (
         sync_afl_lineups,
         sync_aflcomau_injuries,
@@ -67,12 +72,57 @@ async def trigger_sync(
         "afl_lineups": sync_afl_lineups,
     }
 
-    if source:
-        if source not in task_map:
-            return {"error": f"Unknown source: {source}. Valid: {list(task_map.keys())}"}
-        # Manual triggers always bypass should_skip
-        background_tasks.add_task(task_map[source], force=True)
-        return {"message": f"Triggered sync for {source}", "status": "accepted"}
+    if wait:
+        # Foreground mode: run and wait for completion
+        if source:
+            if source not in task_map:
+                return {"error": f"Unknown source: {source}. Valid: {list(task_map.keys())}"}
+            try:
+                await task_map[source](force=True)
+                return {"message": f"Sync complete for {source}", "status": "complete"}
+            except Exception as e:
+                logger.error("Foreground sync failed for %s: %s", source, e)
+                return {"message": f"Sync failed for {source}: {e}", "status": "error"}
+        else:
+            results = await sync_all(force=True)
+            return {"message": "Full sync complete", "status": "complete", "results": results}
     else:
-        background_tasks.add_task(sync_all, force=True)
-        return {"message": "Triggered full sync of all sources", "status": "accepted"}
+        # Background mode (original behavior)
+        if source:
+            if source not in task_map:
+                return {"error": f"Unknown source: {source}. Valid: {list(task_map.keys())}"}
+            background_tasks.add_task(task_map[source], force=True)
+            return {"message": f"Triggered sync for {source}", "status": "accepted"}
+        else:
+            background_tasks.add_task(sync_all, force=True)
+            return {"message": "Triggered full sync of all sources", "status": "accepted"}
+
+
+@router.post("/scores")
+async def sync_scores_foreground() -> dict:
+    """Dedicated endpoint: sync player names + round scores, wait for completion.
+
+    Runs player sync first (to ensure names/feed_ids match), then round sync.
+    Returns results immediately — no background task guessing.
+    """
+    from src.sync.tasks import sync_supercoach_players, sync_supercoach_round_data
+
+    results = {}
+
+    # Step 1: Sync player names first (ensures DB names match SC API)
+    try:
+        await sync_supercoach_players(force=True)
+        results["players"] = "success"
+    except Exception as e:
+        logger.error("Player sync failed: %s", e)
+        results["players"] = f"error: {e}"
+
+    # Step 2: Sync round scores
+    try:
+        await sync_supercoach_round_data(force=True)
+        results["scores"] = "success"
+    except Exception as e:
+        logger.error("Round sync failed: %s", e)
+        results["scores"] = f"error: {e}"
+
+    return {"status": "complete", "results": results}

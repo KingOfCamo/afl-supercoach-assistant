@@ -802,13 +802,16 @@ const App = {
             btn.textContent = 'Syncing...';
             btn.disabled = true;
             try {
-                // Sync scores + lineups in parallel
-                await Promise.all([
-                    authFetch(`${API_BASE}/api/sync/trigger?source=supercoach_round`, {method: 'POST'}),
-                    authFetch(`${API_BASE}/api/sync/trigger?source=afl_lineups`, {method: 'POST'}),
-                ]);
-                // Wait for sync to complete
-                await new Promise(r => setTimeout(r, 8000));
+                // Foreground sync: players + scores (waits for completion)
+                const scoreSync = authFetch(`${API_BASE}/api/sync/scores`, {method: 'POST'});
+                // Lineups in parallel (foreground)
+                const lineupSync = authFetch(`${API_BASE}/api/sync/trigger?source=afl_lineups&wait=true`, {method: 'POST'});
+
+                const [scoreResult, lineupResult] = await Promise.all([scoreSync, lineupSync]);
+                const scoreData = await scoreResult.json().catch(() => ({}));
+                console.log('Score sync result:', scoreData);
+
+                // Now load the updated data
                 await Promise.all([
                     this.loadLiveScores(),
                     this.loadTeam(),

@@ -189,6 +189,11 @@ def sync_from_supercoach_api(season: int = 2026) -> dict:
                 sc_player_ids.add(matched.id)
                 changed = False
 
+                # Store feed_id for reliable matching
+                if sc_feed_id and matched.champion_data_id != str(sc_feed_id):
+                    matched.champion_data_id = str(sc_feed_id)
+                    changed = True
+
                 # Fix incorrect names
                 if matched.name != sc_name:
                     old_name = matched.name
@@ -251,6 +256,7 @@ def sync_from_supercoach_api(season: int = 2026) -> dict:
                     team=sc_team,
                     position=sc_pos,
                     is_active=True,
+                    champion_data_id=str(sc_feed_id) if sc_feed_id else None,
                 )
                 session.add(new_player)
                 session.flush()
@@ -303,6 +309,7 @@ def sync_round_from_supercoach_api(season: int = 2026, round_num: int = 1) -> di
     """Sync per-round data (scores, prices, breakevens) from the SuperCoach API.
 
     Fetches round=N data and upserts SupercoachScore records.
+    Uses multiple matching strategies: feed_id, exact name, fuzzy name.
     """
     init_db()
     session = get_session()
@@ -318,14 +325,26 @@ def sync_round_from_supercoach_api(season: int = 2026, round_num: int = 1) -> di
 
         logger.info("Fetched %d players for round %d", len(sc_players), round_num)
 
-        # Build name lookup from DB
+        # Build multiple lookup indexes from DB
         all_db_players = session.execute(select(Player)).scalars().all()
+
         by_name: Dict[str, Player] = {}
+        by_feed_id: Dict[str, Player] = {}
+        by_last_name: Dict[str, List[Player]] = {}
+
         for p in all_db_players:
             by_name[p.name.lower()] = p
+            if p.champion_data_id:
+                by_feed_id[str(p.champion_data_id)] = p
+            parts = p.name.split()
+            if parts:
+                lname = parts[-1].lower()
+                by_last_name.setdefault(lname, []).append(p)
 
         updated = 0
         skipped = 0
+        matched_count = 0
+        has_score_count = 0
 
         for sc_p in sc_players:
             first = sc_p.get("first_name", "").strip()
@@ -335,10 +354,35 @@ def sync_round_from_supercoach_api(season: int = 2026, round_num: int = 1) -> di
                 continue
 
             sc_name = f"{first} {last}"
-            player = by_name.get(sc_name.lower())
+            sc_feed_id = sc_p.get("feed_id")
+            sc_team = _resolve_team(sc_p)
+
+            # Match player: feed_id first, then exact name, then fuzzy
+            player = None
+
+            # 1. Match by feed_id (most reliable)
+            if sc_feed_id and str(sc_feed_id) in by_feed_id:
+                player = by_feed_id[str(sc_feed_id)]
+
+            # 2. Exact name match
+            if player is None:
+                player = by_name.get(sc_name.lower())
+
+            # 3. Fuzzy: last name + first initial + same team
+            if player is None:
+                last_candidates = by_last_name.get(last.lower(), [])
+                for c in last_candidates:
+                    db_first = c.name.split()[0] if c.name.split() else ""
+                    if db_first and first and db_first[0].lower() == first[0].lower():
+                        if c.team == sc_team:
+                            player = c
+                            break
+
             if player is None:
                 skipped += 1
                 continue
+
+            matched_count += 1
 
             # Extract round stats from player_stats embed
             player_stats = sc_p.get("player_stats", [])
@@ -362,6 +406,9 @@ def sync_round_from_supercoach_api(season: int = 2026, round_num: int = 1) -> di
             # Skip if no useful data
             if score is None and price is None and breakeven is None:
                 continue
+
+            if score is not None:
+                has_score_count += 1
 
             # Upsert SupercoachScore
             existing = session.execute(
@@ -402,12 +449,14 @@ def sync_round_from_supercoach_api(season: int = 2026, round_num: int = 1) -> di
         summary = {
             "round": round_num,
             "api_total": len(sc_players),
+            "matched": matched_count,
+            "has_scores": has_score_count,
             "updated": updated,
             "skipped": skipped,
         }
         logger.info(
-            "SuperCoach round %d sync: %d updated, %d skipped",
-            round_num, updated, skipped,
+            "SuperCoach round %d sync: %d matched, %d with scores, %d updated, %d skipped",
+            round_num, matched_count, has_score_count, updated, skipped,
         )
         return summary
 
