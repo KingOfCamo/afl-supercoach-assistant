@@ -971,9 +971,9 @@ select.input {
 
 /* Field player card */
 .field-card {
-    width: 140px;
+    width: 150px;
     border-radius: 10px;
-    padding: 10px 12px;
+    padding: 10px 28px 10px 12px;
     border: 1px solid rgba(255,255,255,0.25);
     border-left: 3px solid var(--team-color, #94a3b8);
     position: relative;
@@ -1024,11 +1024,10 @@ select.input {
     align-items: center;
     gap: 4px;
     min-height: 18px;
-    padding-right: 16px;
 }
 
 .field-card .fc-name {
-    font-size: 12.5px;
+    font-size: 13px;
     font-weight: 700;
     color: #1e293b;
     white-space: nowrap;
@@ -1067,8 +1066,8 @@ select.input {
 }
 
 .field-card .fc-team {
-    font-size: 10px;
-    color: #64748b;
+    font-size: 11px;
+    color: #475569;
     text-transform: uppercase;
     flex-shrink: 0;
     font-weight: 700;
@@ -1076,7 +1075,7 @@ select.input {
 }
 
 .field-card .fc-score {
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 800;
     color: var(--accent-blue);
     flex-shrink: 0;
@@ -1085,10 +1084,10 @@ select.input {
 }
 
 .field-card .fc-salary {
-    font-size: 10px;
-    color: #475569;
+    font-size: 11px;
+    color: #334155;
     flex-shrink: 0;
-    font-weight: 500;
+    font-weight: 600;
 }
 
 /* Bench sidebar */
@@ -1594,7 +1593,7 @@ select.input {
 
 /* ——— Empty Slot Placeholder Cards ——— */
 .field-card-empty {
-    width: 140px;
+    width: 150px;
     padding: 10px 8px;
     border-radius: 10px;
     border: 2px dashed rgba(255,255,255,0.45);
@@ -1660,20 +1659,21 @@ select.input {
 /* ——— Remove Button on Cards ——— */
 .fc-remove {
     position: absolute;
-    top: 3px;
-    right: 3px;
-    width: 18px;
-    height: 18px;
+    top: -4px;
+    left: -4px;
+    width: 16px;
+    height: 16px;
     border-radius: 50%;
     background: rgba(239, 68, 68, 0.9);
     color: white;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 700;
     border: none;
     cursor: pointer;
     display: none;
     align-items: center;
     justify-content: center;
+    z-index: 5;
     line-height: 1;
     z-index: 6;
     box-shadow: 0 1px 4px rgba(0,0,0,0.35);
@@ -1763,16 +1763,17 @@ select.input {
 /* Lineup status — top-left badge with solid bg for visibility over guernsey */
 .fc-lineup-status {
     position: absolute;
-    top: 4px;
-    left: 4px;
+    top: 50%;
+    right: 6px;
+    transform: translateY(-50%);
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: 700;
     line-height: 1;
     z-index: 4;
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
     border-radius: 50%;
 }
 
