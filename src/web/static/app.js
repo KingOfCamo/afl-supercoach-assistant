@@ -1356,12 +1356,9 @@ const App = {
 
             html += '</div>'; // .field-view-wrapper
 
-            // Fixture widget below the field
-            html += '<div id="fixture-widget" class="fixture-widget"></div>';
-
             container.innerHTML = html;
 
-            // Render fixtures if already loaded
+            // Render fixtures if already loaded (widget is in sidebar)
             if (this._fixtureData) {
                 this._renderFixtureWidget();
             }

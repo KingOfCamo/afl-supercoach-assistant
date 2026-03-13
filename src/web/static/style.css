@@ -1438,7 +1438,47 @@ select.input {
     border-top-color: rgba(255,255,255,0.2);
 }
 
-/* ——— Fixture Widget ——— */
+/* ——— Fixture Widget (sidebar) ——— */
+.fixture-widget.sidebar-fixture {
+    margin: 16px 10px 8px;
+    background: var(--bg-card);
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+    max-height: calc(100vh - 320px);
+    overflow-y: auto;
+}
+.sidebar-fixture .fixture-row {
+    padding: 5px 8px 1px;
+    gap: 4px;
+}
+.sidebar-fixture .fix-abbr {
+    font-size: 10px;
+}
+.sidebar-fixture .fix-dot {
+    width: 8px;
+    height: 8px;
+}
+.sidebar-fixture .fix-centre {
+    min-width: 55px;
+}
+.sidebar-fixture .fix-score {
+    font-size: 12px;
+}
+.sidebar-fixture .fix-time {
+    font-size: 9px;
+}
+.sidebar-fixture .fix-venue {
+    font-size: 8px;
+    padding: 0 8px 4px;
+}
+.sidebar-fixture .fixture-header {
+    padding: 8px 10px 6px;
+}
+.sidebar-fixture .fixture-title {
+    font-size: 11px;
+}
 .fixture-widget {
     margin-top: 12px;
     background: var(--bg-card);

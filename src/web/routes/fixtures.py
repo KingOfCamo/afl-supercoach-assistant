@@ -9,6 +9,7 @@ from fastapi import APIRouter, Query
 
 from src.scrapers.afl_lineups import AFL_V2_BASE, COMP_SEASON_IDS, AflLineupScraper
 from src.utils.config import get_config
+from src.utils.teams import normalize_team
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -51,10 +52,10 @@ async def get_round_fixtures(
         matches.append({
             "id": m.get("id"),
             "status": m.get("status", ""),
-            "home_team": home_team.get("name", ""),
+            "home_team": normalize_team(home_team.get("name", "")),
             "home_abbr": home_team.get("abbr", ""),
             "home_score": home.get("score", {}).get("totalScore"),
-            "away_team": away_team.get("name", ""),
+            "away_team": normalize_team(away_team.get("name", "")),
             "away_abbr": away_team.get("abbr", ""),
             "away_score": away.get("score", {}).get("totalScore"),
             "venue": venue.get("name", ""),
