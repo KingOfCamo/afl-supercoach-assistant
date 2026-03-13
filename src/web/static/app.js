@@ -1289,8 +1289,9 @@ const App = {
                 ? `onclick="App.Team.handleCardClick(${s.player_id})"`
                 : '';
 
-            // Card classes for captain/vc styling
-            let cardClass = `field-card${selectable}`;
+            // Card classes for captain/vc styling + team guernsey
+            const teamSlug = (s.team || '').toLowerCase().replace(/\s+/g, '-');
+            let cardClass = `field-card team-${teamSlug}${selectable}`;
             if (s.is_captain) cardClass += ' is-captain';
             if (s.is_vice_captain) cardClass += ' is-vc';
 
@@ -1345,7 +1346,8 @@ const App = {
                 clickHandler = `onclick="App.Team.handleBenchEmergencyClick(${s.player_id})"`;
             }
 
-            let html = `<div class="bench-card${selectable}" data-pid="${s.player_id}" style="--team-color:${teamColor}" oncontextmenu="App.Team.showCardMenu(event, ${s.id}, ${s.player_id})" ${clickHandler}>`;
+            const teamSlug = (s.team || '').toLowerCase().replace(/\s+/g, '-');
+            let html = `<div class="bench-card team-${teamSlug}${selectable}" data-pid="${s.player_id}" style="--team-color:${teamColor}" oncontextmenu="App.Team.showCardMenu(event, ${s.id}, ${s.player_id})" ${clickHandler}>`;
 
             html += `<button class="fc-remove" onclick="event.stopPropagation();App.Team.removePlayer(${s.id})" title="Remove">&times;</button>`;
 

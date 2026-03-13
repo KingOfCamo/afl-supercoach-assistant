@@ -972,10 +972,10 @@ select.input {
 /* Field player card */
 .field-card {
     width: 118px;
-    background: color-mix(in srgb, var(--team-color, #94a3b8) 8%, var(--bg-card));
+    background: var(--bg-card);
     border-radius: 12px;
     padding: 22px 10px 10px;
-    border: 1px solid color-mix(in srgb, var(--team-color, #94a3b8) 20%, var(--border));
+    border: 1px solid var(--border);
     border-top: 3px solid var(--team-color, #94a3b8);
     position: relative;
     cursor: default;
@@ -984,15 +984,29 @@ select.input {
     display: flex;
     flex-direction: column;
     gap: 4px;
-    overflow: visible;
+    overflow: hidden;
 }
+/* Guernsey pattern overlay */
+.field-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 12px;
+    opacity: 0.13;
+    pointer-events: none;
+    z-index: 0;
+    transition: opacity 0.18s ease;
+}
+.field-card > * { position: relative; z-index: 1; }
 
 .field-card:hover {
     transform: translateY(-4px) scale(1.03);
     box-shadow: 0 8px 20px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.06);
-    border-color: color-mix(in srgb, var(--team-color, #94a3b8) 40%, var(--border-hover));
-    background: color-mix(in srgb, var(--team-color, #94a3b8) 12%, var(--bg-card));
+    border-color: var(--border-hover);
     z-index: 2;
+}
+.field-card:hover::before {
+    opacity: 0.18;
 }
 
 .field-card.is-captain {
@@ -1064,7 +1078,7 @@ select.input {
     justify-content: space-between;
     align-items: center;
     padding-top: 2px;
-    border-top: 1px solid color-mix(in srgb, var(--team-color, #94a3b8) 15%, var(--border));
+    border-top: 1px solid var(--border);
     margin-top: 1px;
 }
 
@@ -1131,10 +1145,10 @@ select.input {
 
 /* Bench card */
 .bench-card {
-    background: color-mix(in srgb, var(--team-color, #94a3b8) 8%, var(--bg-card));
+    background: var(--bg-card);
     border-radius: 8px;
     padding: 8px 10px;
-    border: 1px solid color-mix(in srgb, var(--team-color, #94a3b8) 20%, var(--border));
+    border: 1px solid var(--border);
     border-left: 3px solid var(--team-color, #94a3b8);
     position: relative;
     transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
@@ -1142,14 +1156,27 @@ select.input {
     display: flex;
     flex-direction: column;
     gap: 3px;
-    overflow: visible;
+    overflow: hidden;
 }
+.bench-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 8px;
+    opacity: 0.13;
+    pointer-events: none;
+    z-index: 0;
+    transition: opacity 0.12s ease;
+}
+.bench-card > * { position: relative; z-index: 1; }
 
 .bench-card:hover {
     transform: scale(1.02);
     box-shadow: var(--shadow-md);
-    border-color: color-mix(in srgb, var(--team-color, #94a3b8) 40%, var(--border-hover));
-    background: color-mix(in srgb, var(--team-color, #94a3b8) 12%, var(--bg-card));
+    border-color: var(--border-hover);
+}
+.bench-card:hover::before {
+    opacity: 0.18;
 }
 
 .bench-card .fc-top {
@@ -1221,6 +1248,147 @@ select.input {
     justify-content: center;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
     z-index: 3;
+}
+
+/* ——— Team Guernsey Backgrounds ——— */
+/* Adelaide Crows — Navy/red/gold tri-colour hoops */
+.team-adelaide::before {
+    background:
+        linear-gradient(180deg,
+            #002b5c 0%, #002b5c 25%,
+            #e21e31 25%, #e21e31 42%,
+            #ffd200 42%, #ffd200 58%,
+            #e21e31 58%, #e21e31 75%,
+            #002b5c 75%, #002b5c 100%);
+}
+/* Brisbane Lions — Maroon/blue/gold */
+.team-brisbane::before {
+    background:
+        linear-gradient(180deg,
+            #7b0039 0%, #7b0039 35%,
+            #003ea1 35%, #003ea1 50%,
+            #ffd200 50%, #ffd200 65%,
+            #7b0039 65%, #7b0039 100%);
+}
+/* Carlton Blues — Solid navy */
+.team-carlton::before {
+    background: #002b5c;
+}
+/* Collingwood Magpies — Black & white vertical stripes */
+.team-collingwood::before {
+    background: repeating-linear-gradient(
+        90deg,
+        #111 0px, #111 14px,
+        #fff 14px, #fff 28px);
+}
+/* Essendon Bombers — Black with red sash */
+.team-essendon::before {
+    background:
+        linear-gradient(135deg,
+            #111 0%, #111 30%,
+            #cc0000 30%, #cc0000 50%,
+            #111 50%, #111 100%);
+}
+/* Fremantle Dockers — Purple with white chevron */
+.team-fremantle::before {
+    background:
+        linear-gradient(160deg,
+            #fff 0%, #fff 20%,
+            #7b2d8b 20%, #7b2d8b 100%),
+        #7b2d8b;
+}
+/* Geelong Cats — Navy & white hoops */
+.team-geelong::before {
+    background: repeating-linear-gradient(
+        180deg,
+        #002b5c 0px, #002b5c 16px,
+        #fff 16px, #fff 32px);
+}
+/* Gold Coast Suns — Red with gold top */
+.team-gold-coast::before {
+    background:
+        linear-gradient(180deg,
+            #d4a843 0%, #d4a843 35%,
+            #cc0000 35%, #cc0000 100%);
+}
+/* GWS Giants — Orange & charcoal */
+.team-gws::before {
+    background:
+        linear-gradient(180deg,
+            #f47920 0%, #f47920 40%,
+            #3d3d3d 40%, #3d3d3d 100%);
+}
+/* Hawthorn Hawks — Brown & gold vertical stripes */
+.team-hawthorn::before {
+    background: repeating-linear-gradient(
+        90deg,
+        #4d2004 0px, #4d2004 14px,
+        #ffd200 14px, #ffd200 28px);
+}
+/* Melbourne Demons — Navy with red yoke */
+.team-melbourne::before {
+    background:
+        linear-gradient(180deg,
+            #cc0000 0%, #cc0000 35%,
+            #002b5c 35%, #002b5c 100%);
+}
+/* North Melbourne Kangaroos — Blue & white vertical stripes */
+.team-north-melbourne::before {
+    background: repeating-linear-gradient(
+        90deg,
+        #003ea1 0px, #003ea1 14px,
+        #fff 14px, #fff 28px);
+}
+/* Port Adelaide Power — Teal/black/white */
+.team-port-adelaide::before {
+    background:
+        linear-gradient(180deg,
+            #008aab 0%, #008aab 33%,
+            #111 33%, #111 66%,
+            #fff 66%, #fff 100%);
+}
+/* Richmond Tigers — Black with yellow sash */
+.team-richmond::before {
+    background:
+        linear-gradient(135deg,
+            #111 0%, #111 30%,
+            #ffd200 30%, #ffd200 50%,
+            #111 50%, #111 100%);
+}
+/* St Kilda Saints — Black/white/red */
+.team-st-kilda::before {
+    background:
+        linear-gradient(180deg,
+            #111 0%, #111 30%,
+            #fff 30%, #fff 45%,
+            #ed1c24 45%, #ed1c24 55%,
+            #fff 55%, #fff 70%,
+            #111 70%, #111 100%);
+}
+/* Sydney Swans — Red & white */
+.team-sydney::before {
+    background:
+        linear-gradient(180deg,
+            #ed171f 0%, #ed171f 40%,
+            #fff 40%, #fff 60%,
+            #ed171f 60%, #ed171f 100%);
+}
+/* West Coast Eagles — Royal blue & gold */
+.team-west-coast::before {
+    background:
+        linear-gradient(180deg,
+            #002b5c 0%, #002b5c 40%,
+            #ffd200 40%, #ffd200 60%,
+            #002b5c 60%, #002b5c 100%);
+}
+/* Western Bulldogs — Blue/red/white tricolour */
+.team-western-bulldogs::before {
+    background:
+        linear-gradient(180deg,
+            #014896 0%, #014896 33%,
+            #fff 33%, #fff 50%,
+            #cc0000 50%, #cc0000 67%,
+            #014896 67%, #014896 100%);
 }
 
 /* ——— Salary Cap Bar ——— */
