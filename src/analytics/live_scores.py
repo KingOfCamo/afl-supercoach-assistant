@@ -14,7 +14,7 @@ Features:
 
 import logging
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import List, Optional
 
 from sqlalchemy import desc, select
 
@@ -53,7 +53,7 @@ class LiveRoundSummary:
 
     round_num: int
     season: int
-    players: list[LivePlayerScore] = field(default_factory=list)
+    players: List[LivePlayerScore] = field(default_factory=list)
     total_live_score: int = 0
     projected_total: float = 0.0
     games_complete: int = 0
@@ -66,6 +66,7 @@ class LiveRoundSummary:
 def get_live_round(
     round_num: int,
     season: Optional[int] = None,
+    user_id: Optional[int] = None,
 ) -> LiveRoundSummary:
     """Get live scoring summary for a round.
 
@@ -82,11 +83,10 @@ def get_live_round(
 
     session = get_session()
     try:
-        slots = (
-            session.execute(select(MyTeamSlot).order_by(MyTeamSlot.position_slot))
-            .scalars()
-            .all()
-        )
+        query = select(MyTeamSlot).order_by(MyTeamSlot.position_slot)
+        if user_id is not None:
+            query = query.where(MyTeamSlot.user_id == user_id)
+        slots = session.execute(query).scalars().all()
 
         if not slots:
             return LiveRoundSummary(

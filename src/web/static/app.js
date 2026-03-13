@@ -378,16 +378,28 @@ const App = {
             event.stopPropagation();
             this.closeCardMenu();
 
-            const card = event.currentTarget;
             const slot = this._lastTeamData
                 ? this._lastTeamData.slots.find(s => s.id === slotId)
                 : null;
             const isBench = slot && slot.position_slot.startsWith('BENCH');
+            const playerName = slot ? slot.player_name : '';
+            const isCaptain = slot && slot.is_captain;
+            const isVC = slot && slot.is_vice_captain;
 
             let html = '<div class="fc-context-menu">';
-            html += `<div class="fc-context-item" onclick="App.Team.setCaptain(${playerId})">&#128081; Set Captain</div>`;
-            html += `<div class="fc-context-item" onclick="App.Team.setVC(${playerId})">&#127775; Set Vice Captain</div>`;
+            html += `<div class="ctx-header">${esc(playerName)}</div>`;
+
+            // Captain / VC section
+            if (!isCaptain) {
+                html += `<div class="fc-context-item" onclick="App.Team.setCaptain(${playerId})">&#128081; Set Captain</div>`;
+            }
+            if (!isVC) {
+                html += `<div class="fc-context-item" onclick="App.Team.setVC(${playerId})">&#127775; Set Vice Captain</div>`;
+            }
+
+            // Emergency section (bench only)
             if (isBench) {
+                html += '<div class="fc-context-sep"></div>';
                 const isEmg = slot && slot.is_emergency;
                 if (isEmg) {
                     html += `<div class="fc-context-item" onclick="App.Team.quickRemoveEmergency(${playerId})">&#10006; Remove Emergency</div>`;
@@ -395,10 +407,37 @@ const App = {
                     html += `<div class="fc-context-item" onclick="App.Team.quickAddEmergency(${playerId})">&#127919; Set Emergency</div>`;
                 }
             }
-            html += `<div class="fc-context-item danger" onclick="App.Team.removePlayer(${slotId})">&#10060; Remove</div>`;
+
+            // Remove
+            html += '<div class="fc-context-sep"></div>';
+            html += `<div class="fc-context-item danger" onclick="App.Team.removePlayer(${slotId})">&#10060; Remove from team</div>`;
             html += '</div>';
-            card.insertAdjacentHTML('beforeend', html);
-            this._contextMenu = card.querySelector('.fc-context-menu');
+
+            // Append to body with fixed positioning
+            document.body.insertAdjacentHTML('beforeend', html);
+            this._contextMenu = document.body.querySelector('.fc-context-menu:last-child');
+
+            // Position near click, but keep on screen
+            const menu = this._contextMenu;
+            const mx = event.clientX;
+            const my = event.clientY;
+            const mw = menu.offsetWidth;
+            const mh = menu.offsetHeight;
+            const vw = window.innerWidth;
+            const vh = window.innerHeight;
+
+            let left = mx;
+            let top = my;
+            // Flip left if overflowing right
+            if (mx + mw > vw - 8) left = mx - mw;
+            // Flip up if overflowing bottom
+            if (my + mh > vh - 8) top = my - mh;
+            // Clamp
+            if (left < 4) left = 4;
+            if (top < 4) top = 4;
+
+            menu.style.left = left + 'px';
+            menu.style.top = top + 'px';
 
             setTimeout(() => {
                 document.addEventListener('click', this._contextCloseHandler = () => {
@@ -548,15 +587,74 @@ const App = {
         },
 
         // --- Live Scores ---
+        _liveData: null,
+
         async loadLiveScores() {
             const round = App.state.config ? App.state.config.current_round : 1;
             try {
                 const res = await authFetch(`${API_BASE}/api/analytics/live?round=${round}`);
                 const data = await res.json();
+                this._liveData = data;
                 this._renderLiveScores(data);
+                this._overlayLiveScoresOnCards(data);
             } catch (e) {
                 console.error('Failed to load live scores:', e);
             }
+        },
+
+        _overlayLiveScoresOnCards(data) {
+            // Overlay live scores onto field & bench cards
+            if (!data.players) return;
+            const scoreMap = {};
+            for (const p of data.players) {
+                scoreMap[p.player_id] = p;
+            }
+
+            // Update field cards
+            document.querySelectorAll('.field-card[data-pid]').forEach(card => {
+                const pid = parseInt(card.dataset.pid);
+                const p = scoreMap[pid];
+                if (!p) return;
+                let overlay = card.querySelector('.fc-live-overlay');
+                if (!overlay) {
+                    overlay = document.createElement('div');
+                    overlay.className = 'fc-live-overlay';
+                    card.appendChild(overlay);
+                }
+                if (p.live_score != null) {
+                    const cls = p.match_status === 'complete' ? 'complete' :
+                        p.match_status === 'in_progress' ? 'live' : '';
+                    const display = p.is_captain ? p.live_score * 2 : p.live_score;
+                    overlay.innerHTML = `<span class="fc-live-score ${cls}">${display}</span>`;
+                    overlay.style.display = '';
+                } else if (p.match_status === 'upcoming' && p.projected_final != null) {
+                    overlay.innerHTML = `<span class="fc-live-score proj">~${Math.round(p.projected_final)}</span>`;
+                    overlay.style.display = '';
+                } else {
+                    overlay.style.display = 'none';
+                }
+            });
+
+            // Update bench cards
+            document.querySelectorAll('.bench-card[data-pid]').forEach(card => {
+                const pid = parseInt(card.dataset.pid);
+                const p = scoreMap[pid];
+                if (!p) return;
+                let overlay = card.querySelector('.fc-live-overlay');
+                if (!overlay) {
+                    overlay = document.createElement('div');
+                    overlay.className = 'fc-live-overlay';
+                    card.appendChild(overlay);
+                }
+                if (p.live_score != null) {
+                    const cls = p.match_status === 'complete' ? 'complete' :
+                        p.match_status === 'in_progress' ? 'live' : '';
+                    overlay.innerHTML = `<span class="fc-live-score ${cls}">${p.live_score}</span>`;
+                    overlay.style.display = '';
+                } else {
+                    overlay.style.display = 'none';
+                }
+            });
         },
 
         toggleLiveExpanded() {
@@ -623,12 +721,32 @@ const App = {
             container.innerHTML = html;
         },
 
+        async syncAndRefreshScores() {
+            const btn = document.getElementById('live-sync-btn');
+            btn.textContent = 'Syncing...';
+            btn.disabled = true;
+            try {
+                // Trigger backend sync of all score sources
+                await authFetch(`${API_BASE}/api/sync/trigger?source=footywire_scores`, {method: 'POST'});
+                await authFetch(`${API_BASE}/api/sync/trigger?source=fanfooty`, {method: 'POST'});
+                await authFetch(`${API_BASE}/api/sync/trigger?source=supercoach_round`, {method: 'POST'});
+                // Wait a few seconds for sync to complete
+                await new Promise(r => setTimeout(r, 5000));
+                await this.loadLiveScores();
+            } catch (e) {
+                console.error('Score sync failed:', e);
+            } finally {
+                btn.textContent = 'Sync';
+                btn.disabled = false;
+            }
+        },
+
         startLiveRefresh() {
             if (this._liveRefreshInterval) return;
-            // Refresh every 60 seconds
+            // Refresh every 30 seconds for live game updates
             this._liveRefreshInterval = setInterval(() => {
                 if (App.state.connected) this.loadLiveScores();
-            }, 60000);
+            }, 30000);
         },
 
         stopLiveRefresh() {
@@ -1083,7 +1201,7 @@ const App = {
             const clickHandler = this._captainMode
                 ? `onclick="App.Team.handleCardClick(${s.player_id})"`
                 : '';
-            let html = `<div class="field-card${selectable}" style="border-left-color:${teamColor}" oncontextmenu="App.Team.showCardMenu(event, ${s.id}, ${s.player_id})" ${clickHandler}>`;
+            let html = `<div class="field-card${selectable}" data-pid="${s.player_id}" style="border-left-color:${teamColor}" oncontextmenu="App.Team.showCardMenu(event, ${s.id}, ${s.player_id})" ${clickHandler}>`;
 
             // Remove button (top-right, shown on hover)
             html += `<button class="fc-remove" onclick="event.stopPropagation();App.Team.removePlayer(${s.id})" title="Remove">&times;</button>`;
@@ -1123,7 +1241,7 @@ const App = {
                 clickHandler = `onclick="App.Team.handleBenchEmergencyClick(${s.player_id})"`;
             }
 
-            let html = `<div class="bench-card${selectable}" style="border-left-color:${teamColor}" oncontextmenu="App.Team.showCardMenu(event, ${s.id}, ${s.player_id})" ${clickHandler}>`;
+            let html = `<div class="bench-card${selectable}" data-pid="${s.player_id}" style="border-left-color:${teamColor}" oncontextmenu="App.Team.showCardMenu(event, ${s.id}, ${s.player_id})" ${clickHandler}>`;
 
             // Remove button (top-right, shown on hover)
             html += `<button class="fc-remove" onclick="event.stopPropagation();App.Team.removePlayer(${s.id})" title="Remove">&times;</button>`;

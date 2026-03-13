@@ -112,6 +112,7 @@
                             <span class="live-scores-total" id="live-total">-</span>
                             <span class="live-scores-projected" id="live-projected">Proj: -</span>
                             <span class="live-scores-games" id="live-games-status"></span>
+                            <button class="btn btn-sm" onclick="event.stopPropagation();App.Team.syncAndRefreshScores()" id="live-sync-btn" title="Sync latest scores from sources">Sync</button>
                             <button class="btn btn-sm" onclick="event.stopPropagation();App.Team.loadLiveScores()" id="live-refresh-btn" title="Refresh scores">&#8635;</button>
                         </div>
                         <div class="live-scores-players" id="live-scores-players" style="display:none;"></div>
