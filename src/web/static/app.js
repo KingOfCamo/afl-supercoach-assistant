@@ -167,7 +167,7 @@ const App = {
         _captainMode: null, // null, 'captain', or 'vc'
         _emergencyMode: false,
         _emergencyPicks: [], // player_ids in order
-        _scoreView: 'live', // 'live', 'projected', 'average'
+        _scoreView: 'last', // 'last', 'live', 'projected', 'average'
         _liveScoresExpanded: false,
         _liveRefreshInterval: null,
         SALARY_CAP: 10000000,
@@ -649,25 +649,14 @@ const App = {
             }
 
             // Priority 4: AFL.com.au lineup announcement (pre-game only)
-            // Only show "named" icon when it provides useful info — i.e. when
-            // some players are NOT named yet. If everyone is named, skip it.
+            // Plain tick (no circle) for named players
             if (s.lineup_status === 'NAMED') {
-                const teamSlots = (this._lastTeamData && this._lastTeamData.slots) ? this._lastTeamData.slots : [];
-                const totalField = teamSlots.filter(t => !t.position_slot.startsWith('BENCH')).length;
-                const namedCount = teamSlots.filter(t =>
-                    !t.position_slot.startsWith('BENCH') && t.lineup_status === 'NAMED'
-                ).length;
-                // Only show tick if some field players are NOT named
-                if (namedCount < totalField) {
-                    const opp = s.lineup_opponent ? ` v ${s.lineup_opponent}` : '';
-                    return {
-                        status: 'named',
-                        label: '✓',
-                        tooltip: `Named${opp}${s.lineup_position ? ' (' + s.lineup_position + ')' : ''}`,
-                    };
-                }
-                // All named — no icon needed
-                return null;
+                const opp = s.lineup_opponent ? ` v ${s.lineup_opponent}` : '';
+                return {
+                    status: 'named',
+                    label: '✓',
+                    tooltip: `Named${opp}${s.lineup_position ? ' (' + s.lineup_position + ')' : ''}`,
+                };
             }
             if (s.lineup_status === 'EMERGENCY') {
                 return {

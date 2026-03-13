@@ -1785,7 +1785,9 @@ select.input {
     width: 14px;
     height: 14px;
 }
-.bench-card .fc-lineup-status.named,
+.bench-card .fc-lineup-status.named {
+    font-size: 12px;
+}
 .bench-card .fc-lineup-status.played {
     font-size: 8px;
 }
@@ -1799,12 +1801,14 @@ select.input {
     font-size: 8px;
 }
 
-/* ✓ Named in squad — green circle with white tick */
+/* ✓ Named in squad — plain green tick, no circle */
 .fc-lineup-status.named {
-    background: #059669;
-    color: white;
-    font-size: 10px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+    background: none;
+    color: #059669;
+    font-size: 14px;
+    box-shadow: none;
+    width: auto;
+    height: auto;
 }
 
 /* ✓ Played/complete — filled green circle with white tick */
