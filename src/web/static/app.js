@@ -617,8 +617,27 @@ const App = {
         },
 
         _getLineupStatus(s) {
-            // Priority 1: Injury
-            if (s.injury) {
+            // Priority 1: Injury (but still check if they played below)
+            const isInjured = !!s.injury;
+
+            // Priority 2: Live match data — played/playing always wins
+            if (this._liveData && this._liveData.players) {
+                const lp = this._liveData.players.find(p => p.player_id === s.player_id);
+                if (lp) {
+                    if (lp.match_status === 'complete' && lp.live_score != null) {
+                        return { status: 'played', label: '✓', tooltip: `Played — ${lp.live_score}pts` };
+                    }
+                    if (lp.match_status === 'in_progress' && lp.live_score != null) {
+                        return { status: 'playing', label: '●', tooltip: `Live — ${lp.live_score}pts` };
+                    }
+                    if (lp.match_status === 'complete' && lp.live_score == null) {
+                        return { status: 'not-playing', label: '✕', tooltip: 'Did not play (DNP)' };
+                    }
+                }
+            }
+
+            // Priority 3: Injury (only if no live match result yet)
+            if (isInjured) {
                 return {
                     status: 'injured',
                     label: '⚠',
@@ -626,7 +645,7 @@ const App = {
                 };
             }
 
-            // Priority 2: AFL.com.au lineup announcement
+            // Priority 4: AFL.com.au lineup announcement (pre-game only)
             if (s.lineup_status === 'NAMED') {
                 const opp = s.lineup_opponent ? ` v ${s.lineup_opponent}` : '';
                 return {
@@ -641,22 +660,6 @@ const App = {
                     label: 'E',
                     tooltip: `Named as match-day emergency`,
                 };
-            }
-
-            // Priority 3: Live match data
-            if (this._liveData && this._liveData.players) {
-                const lp = this._liveData.players.find(p => p.player_id === s.player_id);
-                if (lp) {
-                    if (lp.match_status === 'complete' && lp.live_score != null) {
-                        return { status: 'played', label: '✓', tooltip: `Played — ${lp.live_score}pts` };
-                    }
-                    if (lp.match_status === 'in_progress' && lp.live_score != null) {
-                        return { status: 'playing', label: '●', tooltip: `Live — ${lp.live_score}pts` };
-                    }
-                    if (lp.match_status === 'complete' && lp.live_score == null) {
-                        return { status: 'not-playing', label: '✕', tooltip: 'Did not play (DNP)' };
-                    }
-                }
             }
 
             return null; // No lineup data yet
