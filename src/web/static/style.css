@@ -1092,7 +1092,7 @@ select.input {
 
 /* Bench sidebar */
 .field-bench {
-    width: 145px;
+    width: 160px;
     background: var(--bg-secondary);
     border-left: 1px solid var(--border);
     padding: 10px 8px;
@@ -1140,7 +1140,7 @@ select.input {
 /* Bench card */
 .bench-card {
     border-radius: 8px;
-    padding: 8px 10px;
+    padding: 8px 24px 8px 10px;
     border: 1px solid var(--border);
     border-left: 3px solid var(--team-color, #94a3b8);
     position: relative;
@@ -1149,7 +1149,7 @@ select.input {
     display: flex;
     flex-direction: column;
     gap: 3px;
-    overflow: hidden;
+    overflow: visible;
     background: var(--bg-card);
     color: var(--text-primary);
 }
@@ -1179,7 +1179,6 @@ select.input {
     align-items: center;
     gap: 4px;
     min-height: 16px;
-    padding-right: 14px; /* space for lineup icon */
 }
 
 .bench-card .fc-name {
@@ -1229,20 +1228,20 @@ select.input {
 /* Emergency badge on bench card */
 .bench-card .fc-emg {
     position: absolute;
-    top: -2px;
-    right: -2px;
-    width: 18px;
-    height: 18px;
+    top: -4px;
+    right: -4px;
+    width: 16px;
+    height: 16px;
     border-radius: 50%;
     background: var(--accent-green);
-    font-size: 9px;
+    font-size: 8px;
     font-weight: 800;
     color: white;
     display: flex;
     align-items: center;
     justify-content: center;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-    z-index: 3;
+    z-index: 5;
 }
 
 /* ——— Team Guernsey Backgrounds ——— */
@@ -1775,6 +1774,29 @@ select.input {
     width: 16px;
     height: 16px;
     border-radius: 50%;
+}
+
+/* Bench card: lineup status goes bottom-right to avoid E badge clash */
+.bench-card .fc-lineup-status {
+    top: auto;
+    bottom: 4px;
+    right: 4px;
+    transform: none;
+    width: 14px;
+    height: 14px;
+}
+.bench-card .fc-lineup-status.named,
+.bench-card .fc-lineup-status.played {
+    font-size: 8px;
+}
+.bench-card .fc-lineup-status.playing {
+    width: 12px;
+    height: 12px;
+}
+.bench-card .fc-lineup-status.not-playing,
+.bench-card .fc-lineup-status.injured,
+.bench-card .fc-lineup-status.match-emergency {
+    font-size: 8px;
 }
 
 /* ✓ Named in squad — green circle with white tick */
