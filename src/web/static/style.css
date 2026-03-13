@@ -972,10 +972,10 @@ select.input {
 /* Field player card */
 .field-card {
     width: 118px;
-    background: var(--bg-card);
+    background: color-mix(in srgb, var(--team-color, #94a3b8) 8%, var(--bg-card));
     border-radius: 12px;
     padding: 22px 10px 10px;
-    border: 1px solid var(--border);
+    border: 1px solid color-mix(in srgb, var(--team-color, #94a3b8) 20%, var(--border));
     border-top: 3px solid var(--team-color, #94a3b8);
     position: relative;
     cursor: default;
@@ -990,7 +990,8 @@ select.input {
 .field-card:hover {
     transform: translateY(-4px) scale(1.03);
     box-shadow: 0 8px 20px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.06);
-    border-color: var(--border-hover);
+    border-color: color-mix(in srgb, var(--team-color, #94a3b8) 40%, var(--border-hover));
+    background: color-mix(in srgb, var(--team-color, #94a3b8) 12%, var(--bg-card));
     z-index: 2;
 }
 
@@ -1063,7 +1064,7 @@ select.input {
     justify-content: space-between;
     align-items: center;
     padding-top: 2px;
-    border-top: 1px solid var(--border);
+    border-top: 1px solid color-mix(in srgb, var(--team-color, #94a3b8) 15%, var(--border));
     margin-top: 1px;
 }
 
@@ -1130,10 +1131,10 @@ select.input {
 
 /* Bench card */
 .bench-card {
-    background: var(--bg-card);
+    background: color-mix(in srgb, var(--team-color, #94a3b8) 8%, var(--bg-card));
     border-radius: 8px;
     padding: 8px 10px;
-    border: 1px solid var(--border);
+    border: 1px solid color-mix(in srgb, var(--team-color, #94a3b8) 20%, var(--border));
     border-left: 3px solid var(--team-color, #94a3b8);
     position: relative;
     transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
@@ -1147,7 +1148,8 @@ select.input {
 .bench-card:hover {
     transform: scale(1.02);
     box-shadow: var(--shadow-md);
-    border-color: var(--border-hover);
+    border-color: color-mix(in srgb, var(--team-color, #94a3b8) 40%, var(--border-hover));
+    background: color-mix(in srgb, var(--team-color, #94a3b8) 12%, var(--bg-card));
 }
 
 .bench-card .fc-top {
