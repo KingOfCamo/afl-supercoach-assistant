@@ -69,14 +69,18 @@ TEAM_ALIASES = {
     "GE": "Geelong",
     # Gold Coast
     "Gold Coast Suns": "Gold Coast",
+    "Gold Coast SUNS": "Gold Coast",
     "Suns": "Gold Coast",
+    "SUNS": "Gold Coast",
     "GCS": "Gold Coast",
     "GC": "Gold Coast",
     # GWS
     "GWS Giants": "GWS",
+    "GWS GIANTS": "GWS",
     "Greater Western Sydney": "GWS",
     "Greater Western Sydney Giants": "GWS",
     "Giants": "GWS",
+    "GIANTS": "GWS",
     "GW": "GWS",
     # Hawthorn
     "Hawthorn Hawks": "Hawthorn",
