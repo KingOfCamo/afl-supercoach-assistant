@@ -127,6 +127,7 @@ const App = {
                 this._initialLoad = true;
                 this.Team.loadTeam();
                 this.Team.loadLiveScores();
+                this.Team.loadFixtures();
                 this.Team.startLiveRefresh();
             }
         } catch (e) {
@@ -844,6 +845,86 @@ const App = {
             }
         },
 
+        // --- Fixtures ---
+        _fixtureData: null,
+
+        async loadFixtures() {
+            const round = App.state.config ? App.state.config.current_round : 1;
+            try {
+                const res = await authFetch(`${API_BASE}/api/fixtures/round?round_num=${round}`);
+                const data = await res.json();
+                this._fixtureData = data;
+                this._renderFixtureWidget();
+            } catch (e) {
+                console.error('Failed to load fixtures:', e);
+            }
+        },
+
+        _renderFixtureWidget() {
+            const container = document.getElementById('fixture-widget');
+            if (!container || !this._fixtureData || !this._fixtureData.matches) return;
+
+            const matches = this._fixtureData.matches;
+            if (!matches.length) {
+                container.innerHTML = '<div class="fixture-empty">No fixtures available</div>';
+                return;
+            }
+
+            let html = '<div class="fixture-header">';
+            html += `<span class="fixture-title">Round ${this._fixtureData.round} Fixtures</span>`;
+            html += '</div>';
+            html += '<div class="fixture-list">';
+
+            for (const m of matches) {
+                const homeSlug = (m.home_team || '').toLowerCase().replace(/\s+/g, '-');
+                const awaySlug = (m.away_team || '').toLowerCase().replace(/\s+/g, '-');
+                const homeColor = TEAM_COLORS[m.home_team] || '#444';
+                const awayColor = TEAM_COLORS[m.away_team] || '#444';
+                const homeAbbr = TEAM_ABBREVS[m.home_team] || m.home_abbr || '???';
+                const awayAbbr = TEAM_ABBREVS[m.away_team] || m.away_abbr || '???';
+
+                // Format date/time
+                let timeStr = '';
+                if (m.date) {
+                    const d = new Date(m.date);
+                    const day = d.toLocaleDateString('en-AU', { weekday: 'short' });
+                    const time = d.toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit' });
+                    timeStr = `${day} ${time}`;
+                }
+
+                // Match status
+                let statusClass = '';
+                let scoreHtml = '';
+                if (m.status === 'CONCLUDED') {
+                    statusClass = 'concluded';
+                    scoreHtml = `<span class="fix-score">${m.home_score ?? '-'} - ${m.away_score ?? '-'}</span>`;
+                } else if (m.status === 'LIVE' || m.status === 'PLAYING') {
+                    statusClass = 'live';
+                    scoreHtml = `<span class="fix-score fix-live">${m.home_score ?? 0} - ${m.away_score ?? 0}</span>`;
+                } else {
+                    scoreHtml = `<span class="fix-time">${timeStr || 'TBC'}</span>`;
+                }
+
+                html += `<div class="fixture-row ${statusClass}">`;
+                html += `<div class="fix-team fix-home" style="--tc:${homeColor}">`;
+                html += `<span class="fix-abbr">${homeAbbr}</span>`;
+                html += `<span class="fix-dot" style="background:${homeColor}"></span>`;
+                html += `</div>`;
+                html += `<div class="fix-centre">${scoreHtml}</div>`;
+                html += `<div class="fix-team fix-away" style="--tc:${awayColor}">`;
+                html += `<span class="fix-dot" style="background:${awayColor}"></span>`;
+                html += `<span class="fix-abbr">${awayAbbr}</span>`;
+                html += `</div>`;
+                html += `</div>`;
+
+                // Venue line
+                html += `<div class="fix-venue">${m.venue || ''}</div>`;
+            }
+
+            html += '</div>';
+            container.innerHTML = html;
+        },
+
         // --- Emergency selection ---
         toggleEmergencyMode() {
             this._emergencyMode = !this._emergencyMode;
@@ -1274,7 +1355,16 @@ const App = {
             html += '</div>'; // .field-bench
 
             html += '</div>'; // .field-view-wrapper
+
+            // Fixture widget below the field
+            html += '<div id="fixture-widget" class="fixture-widget"></div>';
+
             container.innerHTML = html;
+
+            // Render fixtures if already loaded
+            if (this._fixtureData) {
+                this._renderFixtureWidget();
+            }
         },
 
         _renderFieldCard(s) {

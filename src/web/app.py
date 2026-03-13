@@ -162,11 +162,18 @@ def create_app() -> FastAPI:
     )
 
     from src.web.routes.sync import router as sync_router
+    from src.web.routes.fixtures import router as fixtures_router
 
     application.include_router(
         sync_router,
         prefix="/api/sync",
         tags=["sync"],
+        dependencies=[Depends(get_current_user)],
+    )
+    application.include_router(
+        fixtures_router,
+        prefix="/api/fixtures",
+        tags=["fixtures"],
         dependencies=[Depends(get_current_user)],
     )
 
