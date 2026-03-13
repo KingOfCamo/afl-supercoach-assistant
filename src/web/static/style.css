@@ -1,27 +1,34 @@
-/* SuperCoach AI Dashboard — Dark Theme */
+/* SuperCoach AI Dashboard — Modern Vibrant Theme */
 
 :root {
-    --bg-primary: #0f1117;
-    --bg-secondary: #1a1d26;
-    --bg-card: #222630;
-    --bg-input: #2a2e3a;
-    --text-primary: #e4e7eb;
-    --text-secondary: #8b92a5;
-    --text-muted: #5a6178;
-    --accent-green: #22c55e;
+    --bg-primary: #f0f2f5;
+    --bg-secondary: #ffffff;
+    --bg-card: #ffffff;
+    --bg-input: #e8ecf1;
+    --bg-hover: #f5f7fa;
+    --text-primary: #1a202c;
+    --text-secondary: #64748b;
+    --text-muted: #94a3b8;
+    --accent-green: #10b981;
     --accent-red: #ef4444;
     --accent-blue: #3b82f6;
-    --accent-yellow: #eab308;
+    --accent-yellow: #f59e0b;
     --accent-cyan: #06b6d4;
-    --accent-purple: #a855f7;
-    --border: #2d3140;
-    --border-hover: #3d4256;
+    --accent-purple: #8b5cf6;
+    --accent-orange: #f97316;
+    --border: #e2e8f0;
+    --border-hover: #cbd5e1;
     --sidebar-width: 200px;
-    --sc-green: #2e7d32;
-    --sc-green-light: #43a047;
-    --sc-green-dark: #1b5e20;
-    --sc-gold: #c4a23c;
-    --sc-gold-dark: #a68932;
+    --sc-green: #059669;
+    --sc-green-light: #10b981;
+    --sc-green-dark: #047857;
+    --sc-gold: #d97706;
+    --sc-gold-dark: #b45309;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.1);
+    --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+    --gradient-blue: linear-gradient(135deg, #3b82f6, #2563eb);
+    --gradient-green: linear-gradient(135deg, #10b981, #059669);
 }
 
 * {
@@ -31,7 +38,7 @@
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
     background: var(--bg-primary);
     color: var(--text-primary);
     line-height: 1.5;
@@ -53,12 +60,16 @@ body {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    box-shadow: var(--shadow-sm);
 }
 
 .header h1 {
     font-size: 18px;
     font-weight: 700;
-    color: var(--accent-cyan);
+    background: var(--gradient-blue);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
 }
 
 .header .round-info {
@@ -80,7 +91,10 @@ body {
     padding: 16px;
     font-size: 16px;
     font-weight: 700;
-    color: var(--accent-cyan);
+    background: var(--gradient-blue);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
     border-bottom: 1px solid var(--border);
 }
 
@@ -109,9 +123,10 @@ body {
 }
 
 .nav-item.active {
-    background: var(--bg-card);
-    color: var(--accent-cyan);
-    border-left-color: var(--accent-cyan);
+    background: rgba(59, 130, 246, 0.08);
+    color: var(--accent-blue);
+    border-left-color: var(--accent-blue);
+    font-weight: 600;
 }
 
 /* Main content */
@@ -690,7 +705,7 @@ select.input {
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(15, 17, 23, 0.95);
+    background: rgba(0, 0, 0, 0.5);
     z-index: 1000;
     display: flex;
     align-items: center;
@@ -881,16 +896,16 @@ select.input {
     min-height: 600px;
 }
 
-/* Oval background */
+/* Oval background — vibrant green field */
 .field-pitch::before {
     content: '';
     position: absolute;
     inset: 0;
     background: radial-gradient(ellipse 90% 95% at 50% 50%,
-        var(--sc-green-light) 0%,
-        var(--sc-green) 45%,
-        var(--sc-green-dark) 85%,
-        rgba(15, 17, 23, 0.6) 100%);
+        #22c55e 0%,
+        #16a34a 40%,
+        #15803d 75%,
+        #e2e8f0 100%);
     border-radius: 50%;
     z-index: 0;
 }
@@ -901,9 +916,9 @@ select.input {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: 70px;
-    height: 70px;
-    border: 2px solid rgba(255, 255, 255, 0.1);
+    width: 80px;
+    height: 80px;
+    border: 2px solid rgba(255, 255, 255, 0.25);
     border-radius: 50%;
     pointer-events: none;
     z-index: 0;
@@ -916,7 +931,7 @@ select.input {
     left: 12%;
     right: 12%;
     height: 1px;
-    background: rgba(255, 255, 255, 0.07);
+    background: rgba(255, 255, 255, 0.18);
     pointer-events: none;
     z-index: 0;
 }
@@ -931,18 +946,19 @@ select.input {
     position: relative;
 }
 
-/* Position label pill — SuperCoach gold */
+/* Position label pill */
 .field-zone-label {
     display: inline-block;
     padding: 3px 16px;
-    background: var(--sc-gold);
-    color: #1a1a1a;
+    background: rgba(255, 255, 255, 0.9);
+    color: #15803d;
     font-size: 10px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.8px;
     border-radius: 12px;
     margin-bottom: 2px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.15);
 }
 
 /* Cards row within a zone */
@@ -955,32 +971,78 @@ select.input {
 
 /* Field player card */
 .field-card {
-    width: 112px;
-    background: rgba(18, 20, 28, 0.93);
-    border-radius: 6px;
-    padding: 6px 8px;
-    border-left: 3px solid #444;
+    width: 118px;
+    background: var(--bg-card);
+    border-radius: 10px;
+    padding: 8px 10px 6px;
+    border-left: 3px solid var(--team-color, #94a3b8);
     position: relative;
     cursor: default;
-    transition: transform 0.1s, box-shadow 0.1s;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    transition: transform 0.15s, box-shadow 0.15s;
+    box-shadow: var(--shadow-sm);
 }
 
 .field-card:hover {
-    transform: scale(1.06);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    transform: translateY(-3px) scale(1.04);
+    box-shadow: var(--shadow-lg);
     z-index: 2;
+}
+
+.field-card.is-captain {
+    box-shadow: 0 0 0 2px var(--sc-gold), var(--shadow-sm);
+}
+.field-card.is-vc {
+    box-shadow: 0 0 0 2px var(--accent-cyan), var(--shadow-sm);
+}
+
+/* Top row: name + role inline */
+.field-card .fc-top {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 2px;
 }
 
 .field-card .fc-name {
     font-size: 11px;
     font-weight: 600;
-    color: #fff;
+    color: var(--text-primary);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     line-height: 1.3;
-    padding-right: 20px;
+    flex: 1;
+    min-width: 0;
+}
+
+/* Inline role badge (doesn't overlap name) */
+.fc-role {
+    flex-shrink: 0;
+    font-size: 8px;
+    font-weight: 800;
+    padding: 1px 4px;
+    border-radius: 3px;
+    line-height: 1;
+}
+.fc-role-c {
+    background: var(--sc-gold);
+    color: #fff;
+}
+.fc-role-vc {
+    background: var(--accent-cyan);
+    color: #fff;
+}
+
+.field-card .fc-score-row {
+    text-align: center;
+    margin: 3px 0;
+}
+
+.field-card .fc-score {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--text-primary);
+    letter-spacing: -0.5px;
 }
 
 .field-card .fc-meta {
@@ -992,60 +1054,20 @@ select.input {
 
 .field-card .fc-team {
     font-size: 9px;
-    color: rgba(255, 255, 255, 0.55);
+    color: var(--text-muted);
     font-weight: 600;
     text-transform: uppercase;
 }
 
-.field-card .fc-pos {
-    font-size: 8px;
-    color: rgba(255, 255, 255, 0.35);
-}
-
 .field-card .fc-salary {
     font-size: 9px;
-    color: rgba(255, 255, 255, 0.55);
-}
-
-.field-card .fc-score {
-    position: absolute;
-    top: 5px;
-    right: 7px;
-    font-size: 11px;
-    font-weight: 700;
-    color: #fff;
-}
-
-/* Captain / VC badge */
-.field-card .fc-badge {
-    position: absolute;
-    top: -5px;
-    left: -5px;
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    font-size: 9px;
-    font-weight: 800;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #1a1a1a;
-    z-index: 3;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
-}
-
-.fc-badge-c {
-    background: var(--sc-gold);
-}
-
-.fc-badge-vc {
-    background: var(--accent-cyan);
+    color: var(--text-muted);
 }
 
 /* Bench sidebar */
 .field-bench {
-    width: 135px;
-    background: var(--bg-card);
+    width: 145px;
+    background: var(--bg-secondary);
     border-left: 1px solid var(--border);
     padding: 10px 8px;
     display: flex;
@@ -1091,16 +1113,24 @@ select.input {
 
 /* Bench card */
 .bench-card {
-    background: var(--bg-secondary);
-    border-radius: 5px;
-    padding: 5px 7px;
-    border-left: 3px solid #444;
+    background: var(--bg-card);
+    border-radius: 8px;
+    padding: 6px 8px;
+    border-left: 3px solid var(--team-color, #94a3b8);
     position: relative;
-    transition: transform 0.1s;
+    transition: transform 0.1s, box-shadow 0.1s;
+    box-shadow: var(--shadow-sm);
 }
 
 .bench-card:hover {
-    transform: scale(1.03);
+    transform: scale(1.02);
+    box-shadow: var(--shadow-md);
+}
+
+.bench-card .fc-top {
+    display: flex;
+    align-items: center;
+    gap: 3px;
 }
 
 .bench-card .fc-name {
@@ -1110,13 +1140,15 @@ select.input {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    padding-right: 16px;
+    flex: 1;
+    min-width: 0;
 }
 
 .bench-card .fc-meta {
     display: flex;
     justify-content: space-between;
-    margin-top: 1px;
+    align-items: center;
+    margin-top: 2px;
 }
 
 .bench-card .fc-team {
@@ -1131,12 +1163,9 @@ select.input {
 }
 
 .bench-card .fc-score {
-    position: absolute;
-    top: 4px;
-    right: 6px;
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 700;
-    color: var(--text-primary);
+    color: var(--accent-blue);
 }
 
 /* Emergency badge */
@@ -1287,7 +1316,7 @@ select.input {
     background: var(--bg-card);
     border: 1px solid var(--border-hover);
     border-radius: 8px;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.45), 0 2px 8px rgba(0,0,0,0.25);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.15), 0 2px 8px rgba(0,0,0,0.08);
     z-index: 1000;
     min-width: 180px;
     overflow: hidden;
@@ -1554,12 +1583,12 @@ select.input {
 
 .captain-picker-badge.cb-c {
     background: var(--sc-gold);
-    color: #1a1a1a;
+    color: #fff;
 }
 
 .captain-picker-badge.cb-vc {
     background: var(--accent-cyan);
-    color: #1a1a1a;
+    color: #fff;
 }
 
 .captain-picker-name {

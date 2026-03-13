@@ -779,13 +779,14 @@ const App = {
             btn.textContent = 'Syncing...';
             btn.disabled = true;
             try {
-                // Trigger backend sync of all score sources
-                await authFetch(`${API_BASE}/api/sync/trigger?source=footywire_scores`, {method: 'POST'});
-                await authFetch(`${API_BASE}/api/sync/trigger?source=fanfooty`, {method: 'POST'});
+                // Sync fixtures first (Squiggle), then scores (SuperCoach API)
+                // FootyWire & FanFooty are down for 2026 — skip them
+                await authFetch(`${API_BASE}/api/sync/trigger?source=squiggle`, {method: 'POST'});
                 await authFetch(`${API_BASE}/api/sync/trigger?source=supercoach_round`, {method: 'POST'});
-                // Wait a few seconds for sync to complete
-                await new Promise(r => setTimeout(r, 5000));
+                // Wait for sync to complete
+                await new Promise(r => setTimeout(r, 6000));
                 await this.loadLiveScores();
+                await this.loadTeam();
             } catch (e) {
                 console.error('Score sync failed:', e);
             } finally {
@@ -1248,27 +1249,35 @@ const App = {
             const salary = s.salary ? `$${(s.salary / 1000).toFixed(0)}k` : '';
             const score = this._getDisplayScore(s);
             const displayName = this._abbreviateName(s.player_name);
-            const posLabel = s.position ? s.position.replace('/', ' | ') : '';
 
             const selectable = this._captainMode ? ' captain-selectable' : '';
             const clickHandler = this._captainMode
                 ? `onclick="App.Team.handleCardClick(${s.player_id})"`
                 : '';
-            let html = `<div class="field-card${selectable}" data-pid="${s.player_id}" style="border-left-color:${teamColor}" oncontextmenu="App.Team.showCardMenu(event, ${s.id}, ${s.player_id})" ${clickHandler}>`;
 
-            // Remove button (top-right, shown on hover)
+            // Card classes for captain/vc styling
+            let cardClass = `field-card${selectable}`;
+            if (s.is_captain) cardClass += ' is-captain';
+            if (s.is_vice_captain) cardClass += ' is-vc';
+
+            let html = `<div class="${cardClass}" data-pid="${s.player_id}" style="--team-color:${teamColor}" oncontextmenu="App.Team.showCardMenu(event, ${s.id}, ${s.player_id})" ${clickHandler}>`;
+
+            // Remove button
             html += `<button class="fc-remove" onclick="event.stopPropagation();App.Team.removePlayer(${s.id})" title="Remove">&times;</button>`;
 
-            if (s.is_captain) {
-                html += '<div class="fc-badge fc-badge-c">C</div>';
-            } else if (s.is_vice_captain) {
-                html += '<div class="fc-badge fc-badge-vc">VC</div>';
-            }
-
-            html += `<div class="fc-score">${score}</div>`;
+            // Top row: name + role badge inline
+            html += '<div class="fc-top">';
             html += `<div class="fc-name">${this._esc(displayName)}</div>`;
+            if (s.is_captain) html += '<span class="fc-role fc-role-c">C</span>';
+            else if (s.is_vice_captain) html += '<span class="fc-role fc-role-vc">VC</span>';
+            html += '</div>';
+
+            // Score row
+            html += `<div class="fc-score-row"><span class="fc-score">${score}</span></div>`;
+
+            // Bottom: team + salary
             html += '<div class="fc-meta">';
-            html += `<span class="fc-team">${this._esc(teamAbbr)}${posLabel ? ' | ' + posLabel : ''}</span>`;
+            html += `<span class="fc-team">${this._esc(teamAbbr)}</span>`;
             html += `<span class="fc-salary">${salary}</span>`;
             html += '</div>';
 
@@ -1297,18 +1306,16 @@ const App = {
                 ? `onclick="App.Team.handleCardClick(${s.player_id})"`
                 : '';
 
-            // Emergency mode: bench cards are clickable
             if (this._emergencyMode) {
                 selectable = ' emg-selectable';
                 clickHandler = `onclick="App.Team.handleBenchEmergencyClick(${s.player_id})"`;
             }
 
-            let html = `<div class="bench-card${selectable}" data-pid="${s.player_id}" style="border-left-color:${teamColor}" oncontextmenu="App.Team.showCardMenu(event, ${s.id}, ${s.player_id})" ${clickHandler}>`;
+            let html = `<div class="bench-card${selectable}" data-pid="${s.player_id}" style="--team-color:${teamColor}" oncontextmenu="App.Team.showCardMenu(event, ${s.id}, ${s.player_id})" ${clickHandler}>`;
 
-            // Remove button (top-right, shown on hover)
             html += `<button class="fc-remove" onclick="event.stopPropagation();App.Team.removePlayer(${s.id})" title="Remove">&times;</button>`;
 
-            // Emergency badge — show order number
+            // Emergency badge
             const emgIdx = this._emergencyMode
                 ? this._emergencyPicks.indexOf(s.player_id)
                 : -1;
@@ -1318,14 +1325,20 @@ const App = {
                 html += `<div class="fc-emg">E${s.emergency_order}</div>`;
             }
 
-            html += `<div class="fc-score">${score}</div>`;
+            // Top row: name + role
+            html += '<div class="fc-top">';
             html += `<div class="fc-name">${this._esc(displayName)}</div>`;
+            if (s.is_captain) html += '<span class="fc-role fc-role-c">C</span>';
+            else if (s.is_vice_captain) html += '<span class="fc-role fc-role-vc">VC</span>';
+            html += '</div>';
+
             html += '<div class="fc-meta">';
             html += `<span class="fc-team">${this._esc(teamAbbr)}</span>`;
+            html += `<span class="fc-score">${score}</span>`;
             html += `<span class="fc-salary">${salary}</span>`;
             html += '</div>';
 
-            // Lineup status indicator
+            // Lineup status
             const lineup = this._getLineupStatus(s);
             if (lineup) {
                 html += `<div class="fc-lineup-status ${lineup.status}" title="${this._esc(lineup.tooltip)}">${lineup.label}</div>`;

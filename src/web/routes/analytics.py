@@ -82,6 +82,49 @@ def get_trades(
     }
 
 
+@router.get("/live")
+def get_live(
+    round_num: int = Query(None, alias="round"),
+    user: dict = Depends(get_current_user),
+) -> dict:
+    """Get live scoring summary for a round."""
+    from src.analytics.live_scores import get_live_round
+
+    config = get_config()
+    r = round_num or config.current_round
+
+    summary = get_live_round(r, user_id=user["user_id"])
+
+    return {
+        "round": summary.round_num,
+        "season": summary.season,
+        "total_live_score": summary.total_live_score,
+        "projected_total": summary.projected_total,
+        "games_complete": summary.games_complete,
+        "games_in_progress": summary.games_in_progress,
+        "games_upcoming": summary.games_upcoming,
+        "captain_name": summary.captain_name,
+        "captain_score": summary.captain_score,
+        "players": [
+            {
+                "player_id": p.player_id,
+                "player_name": p.player_name,
+                "team": p.team,
+                "position": p.position,
+                "position_slot": p.position_slot,
+                "is_captain": p.is_captain,
+                "is_vice_captain": p.is_vice_captain,
+                "is_emergency": p.is_emergency,
+                "live_score": p.live_score,
+                "projected_final": p.projected_final,
+                "match_status": p.match_status,
+                "opponent": p.opponent,
+            }
+            for p in summary.players
+        ],
+    }
+
+
 @router.get("/injuries")
 def get_injuries(user: dict = Depends(get_current_user)) -> dict:
     """Get injuries for team players."""
