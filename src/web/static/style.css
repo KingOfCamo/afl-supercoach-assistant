@@ -1235,13 +1235,13 @@ select.input {
 /* Emergency badge on bench card */
 .bench-card .fc-emg {
     position: absolute;
-    top: -4px;
-    right: -4px;
-    width: 16px;
-    height: 16px;
+    top: -2px;
+    right: -2px;
+    width: 18px;
+    height: 18px;
     border-radius: 50%;
     background: var(--accent-green);
-    font-size: 8px;
+    font-size: 9px;
     font-weight: 800;
     color: white;
     display: flex;
@@ -1536,14 +1536,14 @@ select.input {
 /* ——— Remove Button on Cards ——— */
 .fc-remove {
     position: absolute;
-    top: 2px;
-    right: 2px;
-    width: 16px;
-    height: 16px;
+    top: 3px;
+    right: 3px;
+    width: 18px;
+    height: 18px;
     border-radius: 50%;
-    background: rgba(239, 68, 68, 0.85);
+    background: rgba(239, 68, 68, 0.9);
     color: white;
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 700;
     border: none;
     cursor: pointer;
@@ -1552,7 +1552,7 @@ select.input {
     justify-content: center;
     line-height: 1;
     z-index: 6;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.35);
     padding: 0;
 }
 .field-card:hover .fc-remove,
@@ -1636,74 +1636,77 @@ select.input {
 }
 
 /* ——— Lineup Status Indicators ——— */
-/* Lineup status — top-left badge, never overlaps name/score/meta */
+/* Lineup status — top-left badge with solid bg for visibility over guernsey */
 .fc-lineup-status {
     position: absolute;
-    top: 3px;
-    left: 3px;
+    top: 4px;
+    left: 4px;
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: 700;
     line-height: 1;
     z-index: 4;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
 }
 
-/* ✓ Named in squad — small green tick */
+/* ✓ Named in squad — green circle with white tick */
 .fc-lineup-status.named {
-    color: #059669;
-    font-size: 12px;
+    background: #059669;
+    color: white;
+    font-size: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.25);
 }
 
 /* ✓ Played/complete — filled green circle with white tick */
 .fc-lineup-status.played {
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
     background: #059669;
     color: white;
-    font-size: 9px;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+    font-size: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.25);
 }
 
 /* ● Live — blue pulsing dot */
 .fc-lineup-status.playing {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
+    width: 14px;
+    height: 14px;
     background: var(--accent-blue);
     color: transparent;
     font-size: 0;
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
     animation: pulse-live-ring 1.5s ease-in-out infinite;
 }
 @keyframes pulse-live-ring {
-    0%, 100% { box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3); }
-    50% { box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1); }
+    0%, 100% { box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3); }
+    50% { box-shadow: 0 0 0 5px rgba(59, 130, 246, 0.1); }
 }
 
-/* ✕ Not playing / DNP — red cross */
+/* ✕ Not playing / DNP — red circle with white cross */
 .fc-lineup-status.not-playing {
-    color: var(--accent-red);
-    font-size: 12px;
-    font-weight: 800;
-}
-
-/* ⚠ Injured — orange triangle */
-.fc-lineup-status.injured {
-    color: var(--accent-orange);
+    background: var(--accent-red);
+    color: white;
     font-size: 11px;
+    font-weight: 800;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.25);
 }
 
-/* E Match-day emergency — orange outlined E */
+/* ⚠ Injured — orange circle with white warning */
+.fc-lineup-status.injured {
+    background: var(--accent-orange);
+    color: white;
+    font-size: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+}
+
+/* E Match-day emergency — orange circle with white E */
 .fc-lineup-status.match-emergency {
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    border: 2px solid var(--accent-orange);
-    background: transparent;
-    color: var(--accent-orange);
-    font-size: 8px;
+    background: var(--accent-orange);
+    color: white;
+    font-size: 9px;
+    font-weight: 800;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.25);
 }
 
 /* Injury tooltip on card hover */
