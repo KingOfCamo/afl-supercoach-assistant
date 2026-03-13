@@ -106,8 +106,9 @@ def get_live_round(
         team_opponent = {}
         for f in fixtures:
             status = "complete" if f.is_complete else "upcoming"
-            # If scores exist but game not marked complete, it's in progress
-            if not f.is_complete and f.home_score is not None:
+            # If real scores exist but game not marked complete, it's in progress
+            # home_score=0 is the default/unplayed state, not a real score
+            if not f.is_complete and f.home_score is not None and f.home_score > 0:
                 status = "in_progress"
 
             team_status[f.home_team] = status
@@ -159,7 +160,12 @@ def get_live_round(
 
             live_score = score_row.score if score_row and score_row.score is not None else None
 
-            # If we have a score but no fixture data, infer match status
+            # Treat score=0 as "no real score yet" — SC API returns 0 for
+            # players whose game hasn't started
+            if live_score == 0:
+                live_score = None
+
+            # If we have a real score but no fixture data, infer match status
             # (handles Opening Round / missing Squiggle data)
             if live_score is not None and match_status == "upcoming":
                 match_status = "complete"

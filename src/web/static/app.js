@@ -620,17 +620,19 @@ const App = {
             // Priority 1: Injury (but still check if they played below)
             const isInjured = !!s.injury;
 
-            // Priority 2: Live match data — played/playing always wins
+            // Priority 2: Live match data — played/playing overrides lineup status
+            // Only use live data when there's a real score (> 0), since the API
+            // returns 0 for players whose game hasn't started yet
             if (this._liveData && this._liveData.players) {
                 const lp = this._liveData.players.find(p => p.player_id === s.player_id);
                 if (lp) {
-                    if (lp.match_status === 'complete' && lp.live_score != null) {
+                    if (lp.match_status === 'complete' && lp.live_score != null && lp.live_score > 0) {
                         return { status: 'played', label: '✓', tooltip: `Played — ${lp.live_score}pts` };
                     }
-                    if (lp.match_status === 'in_progress' && lp.live_score != null) {
+                    if (lp.match_status === 'in_progress' && lp.live_score != null && lp.live_score > 0) {
                         return { status: 'playing', label: '●', tooltip: `Live — ${lp.live_score}pts` };
                     }
-                    if (lp.match_status === 'complete' && lp.live_score == null) {
+                    if (lp.match_status === 'complete' && (lp.live_score == null || lp.live_score === 0)) {
                         return { status: 'not-playing', label: '✕', tooltip: 'Did not play (DNP)' };
                     }
                 }
