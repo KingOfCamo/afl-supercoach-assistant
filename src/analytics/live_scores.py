@@ -165,10 +165,12 @@ def get_live_round(
             if live_score == 0:
                 live_score = None
 
-            # If we have a real score but no fixture data, infer match status
-            # (handles Opening Round / missing Squiggle data)
-            if live_score is not None and match_status == "upcoming":
-                match_status = "complete"
+            # Don't infer match_status from scores alone — the score could be
+            # stale/historical. Only trust fixture-derived status.
+            # If the fixture says "upcoming" but we have a score, the score is
+            # from a previous import and should not be treated as live.
+            if match_status == "upcoming" and live_score is not None:
+                live_score = None
 
             # Get projected final from projections or rolling avg
             from src.analytics.projections import project_player
