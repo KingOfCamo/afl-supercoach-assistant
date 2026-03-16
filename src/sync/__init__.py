@@ -1,1 +1,1 @@
-from __future__ import annotations
+# Data sync package — APScheduler-based background sync for all data sources.

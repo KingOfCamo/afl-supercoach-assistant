@@ -1,81 +1,86 @@
 from __future__ import annotations
 
-"""Sync task functions that wrap existing importers/scrapers.
+"""Background sync task wrappers for each data source.
 
-Each task is isolated — a failure in one source does not block others.
-Tasks use smart skip logic to reduce polling on non-match days.
+Each function follows the pattern:
+1. Check should_skip() for off-day throttling
+2. record_start() to mark running
+3. Call the existing importer/scraper
+4. record_success() or record_error()
+
+Sync importers (blocking) run via asyncio.to_thread().
+Async scrapers run directly.
 """
 
 import asyncio
 import logging
-from typing import Dict
+from typing import Any, Dict
 
 from src.sync.scheduler import record_error, record_start, record_success, should_skip
 from src.utils.config import get_config
 
 logger = logging.getLogger(__name__)
 
-SOURCE_SUPERCOACH_API = "supercoach_api"
-SOURCE_SUPERCOACH_ROUND = "supercoach_round"
-SOURCE_FOOTYWIRE_SCORES = "footywire_scores"
-SOURCE_FOOTYWIRE_INJURIES = "footywire_injuries"
-SOURCE_AFLCOMAU_INJURIES = "aflcomau_injuries"
-SOURCE_FANFOOTY = "fanfooty"
-SOURCE_SQUIGGLE = "squiggle"
-SOURCE_AFL_LINEUPS = "afl_lineups"
+
+# ── SuperCoach API: Players ──
 
 
-async def sync_supercoach_players(force: bool = False) -> None:
-    """Sync player data from the official SuperCoach API (round=0)."""
-    source = SOURCE_SUPERCOACH_API
-    # Always runs on 6h interval — no skip logic needed
+async def sync_supercoach_players() -> None:
+    """Sync player names, teams, positions from the SuperCoach API."""
+    source = "supercoach_players"
+    if should_skip(source, off_day_hours=6.0):
+        return
+
     record_start(source)
     try:
         from src.importers.supercoach_api import sync_from_supercoach_api
 
         config = get_config()
-        result = await asyncio.to_thread(sync_from_supercoach_api, config.season)
-        total = result.get("updated", 0) + result.get("created", 0)
-        record_success(source, total)
-        logger.info("SuperCoach API sync: %d players processed", total)
+        result = await asyncio.to_thread(sync_from_supercoach_api, season=config.season)
+        count = result.get("updated", 0) + result.get("created", 0)
+        record_success(source, count)
+        logger.info("sync_supercoach_players: %d updated/created", count)
     except Exception as e:
         record_error(source, str(e))
-        logger.error("SuperCoach API sync failed: %s", e, exc_info=True)
+        logger.error("sync_supercoach_players failed: %s", e)
 
 
-async def sync_supercoach_round_data(force: bool = False) -> None:
-    """Sync per-round data (scores, prices, breakevens) from SuperCoach API.
+# ── SuperCoach API: Round Data ──
 
-    Syncs all rounds that have data: Opening Round (0) through current_round.
-    """
-    source = SOURCE_SUPERCOACH_ROUND
-    if not force and should_skip(source, 4.0):
-        logger.debug("Skipping %s — not match day and ran recently", source)
+
+async def sync_supercoach_round_data() -> None:
+    """Sync per-round scores, prices, breakevens from the SuperCoach API."""
+    source = "supercoach_round"
+    if should_skip(source, off_day_hours=4.0):
         return
+
     record_start(source)
     try:
         from src.importers.supercoach_api import sync_round_from_supercoach_api
 
         config = get_config()
-        total_updated = 0
-        # Sync current round (SC API reassigns round numbers as season progresses)
         result = await asyncio.to_thread(
-            sync_round_from_supercoach_api, config.season, config.current_round
+            sync_round_from_supercoach_api,
+            season=config.season,
+            round_num=config.current_round,
         )
-        total_updated += result.get("updated", 0)
-        logger.info("SuperCoach round %d sync: %s", config.current_round, result)
-        record_success(source, total_updated)
+        count = result.get("updated", 0)
+        record_success(source, count)
+        logger.info("sync_supercoach_round_data: %d updated", count)
     except Exception as e:
         record_error(source, str(e))
-        logger.error("SuperCoach round sync failed: %s", e, exc_info=True)
+        logger.error("sync_supercoach_round_data failed: %s", e)
 
 
-async def sync_footywire_scores(force: bool = False) -> None:
+# ── FootyWire: Scores ──
+
+
+async def sync_footywire_scores() -> None:
     """Scrape SuperCoach scores from FootyWire for current round."""
-    source = SOURCE_FOOTYWIRE_SCORES
-    if not force and should_skip(source, 4.0):
-        logger.debug("Skipping %s — not match day and ran recently", source)
+    source = "footywire_scores"
+    if should_skip(source, off_day_hours=4.0):
         return
+
     record_start(source)
     try:
         from src.scrapers.footywire import FootyWireScraper
@@ -83,22 +88,29 @@ async def sync_footywire_scores(force: bool = False) -> None:
         config = get_config()
         scraper = FootyWireScraper()
         try:
-            count = await scraper.scrape_supercoach_round(
-                config.season, config.current_round
-            )
-            record_success(source, count)
-            logger.info("FootyWire scores: %d players scraped", count)
+            count = await scraper.scrape_supercoach_round(config.season, config.current_round)
         finally:
             await scraper.close()
+
+        if count > 0:
+            record_success(source, count)
+        else:
+            record_success(source, 0)
+        logger.info("sync_footywire_scores: %d records", count)
     except Exception as e:
         record_error(source, str(e))
-        logger.error("FootyWire scores failed: %s", e, exc_info=True)
+        logger.error("sync_footywire_scores failed: %s", e)
 
 
-async def sync_footywire_injuries(force: bool = False) -> None:
-    """Scrape current injury list from FootyWire."""
-    source = SOURCE_FOOTYWIRE_INJURIES
-    # Always runs on 4h interval — no skip logic needed
+# ── FootyWire: Injuries ──
+
+
+async def sync_footywire_injuries() -> None:
+    """Scrape injury list from FootyWire."""
+    source = "footywire_injuries"
+    if should_skip(source, off_day_hours=4.0):
+        return
+
     record_start(source)
     try:
         from src.scrapers.footywire import FootyWireScraper
@@ -106,19 +118,25 @@ async def sync_footywire_injuries(force: bool = False) -> None:
         scraper = FootyWireScraper()
         try:
             count = await scraper.scrape_injury_list()
-            record_success(source, count)
-            logger.info("FootyWire injuries: %d injuries scraped", count)
         finally:
             await scraper.close()
+
+        record_success(source, count)
+        logger.info("sync_footywire_injuries: %d records", count)
     except Exception as e:
         record_error(source, str(e))
-        logger.error("FootyWire injuries failed: %s", e, exc_info=True)
+        logger.error("sync_footywire_injuries failed: %s", e)
 
 
-async def sync_aflcomau_injuries(force: bool = False) -> None:
-    """Scrape current injury list from AFL.com.au (official source)."""
-    source = SOURCE_AFLCOMAU_INJURIES
-    # Runs on 4h interval — no skip logic needed
+# ── AFL.com.au: Injuries ──
+
+
+async def sync_aflcomau_injuries() -> None:
+    """Scrape injury list from AFL.com.au."""
+    source = "aflcomau_injuries"
+    if should_skip(source, off_day_hours=4.0):
+        return
+
     record_start(source)
     try:
         from src.scrapers.aflcomau import AflComAuScraper
@@ -126,22 +144,26 @@ async def sync_aflcomau_injuries(force: bool = False) -> None:
         scraper = AflComAuScraper()
         try:
             count = await scraper.scrape_injury_list()
-            record_success(source, count)
-            logger.info("AFL.com.au injuries: %d injuries scraped", count)
         finally:
             await scraper.close()
+
+        record_success(source, count)
+        logger.info("sync_aflcomau_injuries: %d records", count)
     except Exception as e:
         record_error(source, str(e))
-        logger.error("AFL.com.au injuries failed: %s", e, exc_info=True)
+        logger.error("sync_aflcomau_injuries failed: %s", e)
 
 
-async def sync_fanfooty(force: bool = False) -> None:
-    """Scrape SuperCoach scores from FanFooty for current round."""
-    source = SOURCE_FANFOOTY
-    # Shorter skip window (10 min) — live scores need frequent refreshes
-    if not force and should_skip(source, 0.17):
-        logger.debug("Skipping %s — ran recently (< 10 min)", source)
+# ── FanFooty: Live Scores ──
+
+
+async def sync_fanfooty() -> None:
+    """Scrape live SuperCoach scores from FanFooty."""
+    source = "fanfooty"
+    # Aggressive on match days (15min interval), skip quickly off-day
+    if should_skip(source, off_day_hours=4.0):
         return
+
     record_start(source)
     try:
         from src.scrapers.fanfooty import FanFootyScraper
@@ -150,28 +172,30 @@ async def sync_fanfooty(force: bool = False) -> None:
         scraper = FanFootyScraper()
         try:
             count = await scraper.scrape_round(config.season, config.current_round)
-            if count > 0:
-                record_success(source, count)
-                logger.info("FanFooty scores: %d players scraped", count)
-            else:
-                # Don't record as success — allows retry sooner
-                logger.warning(
-                    "FanFooty returned 0 scores for %d R%d — not recording as success",
-                    config.season, config.current_round,
-                )
         finally:
             await scraper.close()
+
+        # Don't record 0-count as success (allows faster retry)
+        if count > 0:
+            record_success(source, count)
+        else:
+            logger.warning("sync_fanfooty: 0 scores returned")
+            record_success(source, 0)
+        logger.info("sync_fanfooty: %d records", count)
     except Exception as e:
         record_error(source, str(e))
-        logger.error("FanFooty scores failed: %s", e, exc_info=True)
+        logger.error("sync_fanfooty failed: %s", e)
 
 
-async def sync_squiggle(force: bool = False) -> None:
-    """Scrape fixtures from Squiggle API."""
-    source = SOURCE_SQUIGGLE
-    if not force and should_skip(source, 6.0):
-        logger.debug("Skipping %s — not match day and ran recently", source)
+# ── Squiggle: Fixtures ──
+
+
+async def sync_squiggle() -> None:
+    """Scrape fixtures and results from Squiggle API."""
+    source = "squiggle"
+    if should_skip(source, off_day_hours=6.0):
         return
+
     record_start(source)
     try:
         from src.scrapers.squiggle import SquiggleScraper
@@ -180,21 +204,25 @@ async def sync_squiggle(force: bool = False) -> None:
         scraper = SquiggleScraper()
         try:
             count = await scraper.scrape_fixtures(config.season)
-            record_success(source, count)
-            logger.info("Squiggle fixtures: %d fixtures synced", count)
         finally:
             await scraper.close()
+
+        record_success(source, count)
+        logger.info("sync_squiggle: %d fixtures", count)
     except Exception as e:
         record_error(source, str(e))
-        logger.error("Squiggle fixtures failed: %s", e, exc_info=True)
+        logger.error("sync_squiggle failed: %s", e)
 
 
-async def sync_afl_lineups(force: bool = False) -> None:
-    """Scrape team lineups from AFL.com.au official API."""
-    source = SOURCE_AFL_LINEUPS
-    if not force and should_skip(source, 4.0):
-        logger.debug("Skipping %s — not near match day", source)
+# ── AFL Lineups ──
+
+
+async def sync_afl_lineups() -> None:
+    """Scrape team lineups from AFL.com.au."""
+    source = "afl_lineups"
+    if should_skip(source, off_day_hours=4.0):
         return
+
     record_start(source)
     try:
         from src.scrapers.afl_lineups import AflLineupScraper
@@ -202,35 +230,39 @@ async def sync_afl_lineups(force: bool = False) -> None:
         config = get_config()
         scraper = AflLineupScraper()
         try:
-            count = await scraper.scrape_round_lineups(
-                config.season, config.current_round
-            )
-            record_success(source, count)
-            logger.info("AFL lineups: %d entries scraped", count)
+            count = await scraper.scrape_round_lineups(config.season, config.current_round)
         finally:
             await scraper.close()
+
+        record_success(source, count)
+        logger.info("sync_afl_lineups: %d entries", count)
     except Exception as e:
         record_error(source, str(e))
-        logger.error("AFL lineups sync failed: %s", e, exc_info=True)
+        logger.error("sync_afl_lineups failed: %s", e)
 
 
-async def sync_all(force: bool = False) -> Dict[str, str]:
-    """Run all sync tasks sequentially. Used for manual trigger."""
-    results: Dict[str, str] = {}
+# ── Run all sources ──
+
+
+async def sync_all() -> Dict[str, Any]:
+    """Run all sync tasks sequentially. Returns per-source summary."""
+    from src.sync.scheduler import sync_status
+
     tasks = [
-        ("supercoach_api", sync_supercoach_players),
         ("squiggle", sync_squiggle),
+        ("supercoach_players", sync_supercoach_players),
+        ("supercoach_round", sync_supercoach_round_data),
         ("footywire_scores", sync_footywire_scores),
         ("footywire_injuries", sync_footywire_injuries),
         ("aflcomau_injuries", sync_aflcomau_injuries),
         ("fanfooty", sync_fanfooty),
-        ("supercoach_round", sync_supercoach_round_data),
         ("afl_lineups", sync_afl_lineups),
     ]
-    for name, task_fn in tasks:
+
+    for name, fn in tasks:
         try:
-            await task_fn(force=force)
-            results[name] = "success"
+            await fn()
         except Exception as e:
-            results[name] = f"error: {e}"
-    return results
+            logger.error("sync_all: %s failed: %s", name, e)
+
+    return dict(sync_status)
