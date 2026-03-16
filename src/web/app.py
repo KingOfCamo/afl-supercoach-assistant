@@ -100,6 +100,22 @@ async def lifespan(app: FastAPI):
     scheduler.start()
     logger.info("Data sync scheduler started with %d jobs", len(scheduler.get_jobs()))
 
+    # Run initial sync on startup (background, non-blocking)
+    import asyncio
+
+    async def _initial_sync():
+        """Run all sync tasks once on startup after a short delay."""
+        await asyncio.sleep(10)  # Let the server finish starting
+        logger.info("Running initial data sync...")
+        from src.sync.tasks import sync_all
+        try:
+            await sync_all()
+            logger.info("Initial data sync complete")
+        except Exception as e:
+            logger.error("Initial data sync failed: %s", e)
+
+    asyncio.create_task(_initial_sync())
+
     yield
 
     scheduler.shutdown(wait=False)
