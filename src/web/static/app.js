@@ -223,12 +223,7 @@ const App = {
                     </div>`;
                 }
 
-                html += '<table class="data-table"><thead><tr>';
-                html += '<th>Player</th><th>Team</th><th>Pos</th><th class="right">Salary</th><th class="right">Avg</th><th></th>';
-                html += '</tr></thead><tbody>';
-
                 for (const p of data.players) {
-                    // Salary with affordability highlighting
                     const affordable = !p.salary || p.salary <= remaining;
                     const salaryClass = p.salary ? (affordable ? 'salary-affordable' : 'salary-over') : '';
                     const salaryStr = p.salary ? `$${p.salary.toLocaleString()}` : '-';
@@ -236,15 +231,12 @@ const App = {
 
                     let btnHtml;
                     if (p.is_on_team) {
-                        btnHtml = '<span style="color:var(--accent-green);">&#10003;</span>';
+                        btnHtml = '<span class="on-team-check">&#10003;</span>';
                     } else if (this._pendingSlot) {
-                        // Direct add to pending slot
                         btnHtml = `<button class="btn btn-sm btn-success" onclick="App.Team.addPlayer(${p.id}, '${this._pendingSlot}')">+ ${this._pendingSlot}</button>`;
                     } else {
-                        // Auto-assign with dropdown fallback
                         const autoSlot = this.autoAssignSlot(p.position || '');
-                        const autoLabel = autoSlot ? autoSlot : 'Full';
-                        btnHtml = `<div class="slot-picker" style="display:flex;gap:2px;">`;
+                        btnHtml = `<div style="display:flex;gap:2px;">`;
                         if (autoSlot) {
                             btnHtml += `<button class="btn btn-sm btn-success" onclick="App.Team.addPlayer(${p.id}, '${autoSlot}')" title="Auto: ${autoSlot}">+ Add</button>`;
                         }
@@ -252,17 +244,19 @@ const App = {
                         btnHtml += `</div>`;
                     }
 
-                    html += `<tr>`;
-                    html += `<td>${this._esc(p.name)}</td>`;
-                    html += `<td class="muted">${this._esc(p.team)}</td>`;
-                    html += `<td class="muted">${this._esc(p.position || '-')}</td>`;
-                    html += `<td class="right ${salaryClass}">${salaryStr}</td>`;
-                    html += `<td class="right">${avgStr}</td>`;
-                    html += `<td class="right">${btnHtml}</td>`;
-                    html += `</tr>`;
+                    html += `<div class="search-card">
+                        <div class="search-card-top">
+                            <div class="search-card-name">${this._esc(p.name)}</div>
+                            <div class="search-card-action">${btnHtml}</div>
+                        </div>
+                        <div class="search-card-meta">
+                            <span class="search-card-team">${this._esc(p.team)}</span>
+                            <span class="search-card-pos">${this._esc(p.position || '-')}</span>
+                            <span class="search-card-salary ${salaryClass}">${salaryStr}</span>
+                            <span class="search-card-avg">Avg ${avgStr}</span>
+                        </div>
+                    </div>`;
                 }
-
-                html += '</tbody></table>';
                 container.innerHTML = html;
             } catch (e) {
                 container.innerHTML = `<div class="empty-state">Error: ${e.message}</div>`;

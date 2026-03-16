@@ -430,7 +430,48 @@ select.input {
 .search-sidebar-body {
     flex: 1;
     overflow-y: auto;
+    overflow-x: hidden;
     padding: 8px;
+}
+
+/* Search result cards */
+.search-card {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+}
+.search-card:hover {
+    background: var(--bg-hover);
+}
+.search-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px;
+}
+.search-card-name {
+    font-weight: 600;
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+.search-card-action {
+    flex-shrink: 0;
+}
+.search-card-meta {
+    display: flex;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+}
+.search-card-salary {
+    font-weight: 600;
+}
+.on-team-check {
+    color: var(--accent-green);
+    font-size: 14px;
 }
 
 /* Center + Right: Team Panel */
