@@ -26,139 +26,163 @@
     </div>
 
     <div class="app-layout">
-        <!-- Sidebar -->
-        <aside class="sidebar">
-            <div class="sidebar-title">
-                SuperCoach AI
-                <small id="sidebar-info">Connecting...</small>
+        <!-- Top Navigation Bar -->
+        <header class="top-nav">
+            <div class="top-nav-left">
+                <span class="top-nav-brand">SuperCoach AI</span>
+                <nav class="top-nav-links">
+                    <a class="nav-tab active" data-section="team" onclick="App.showSection('team')">MY TEAM</a>
+                    <a class="nav-tab" data-section="dashboard" onclick="App.showSection('dashboard')">DASHBOARD</a>
+                    <a class="nav-tab" data-section="ai" onclick="App.showSection('ai')">AI INSIGHTS</a>
+                </nav>
             </div>
-            <nav>
-                <a class="nav-item active" data-section="team" onclick="App.showSection('team')">&#127968; Team Builder</a>
-                <a class="nav-item" data-section="dashboard" onclick="App.showSection('dashboard')">&#128202; Dashboard</a>
-                <a class="nav-item" data-section="ai" onclick="App.showSection('ai')">&#128172; AI Insights</a>
-            </nav>
-            <div id="fixture-widget" class="fixture-widget sidebar-fixture"></div>
-            <div class="sidebar-user" id="sidebar-user"></div>
-            <div class="connection-indicator" id="connection-status">
-                <span class="dot disconnected" id="connection-dot"></span>
-                <span id="connection-text">Connecting...</span>
+            <div class="top-nav-right">
+                <div class="connection-indicator" id="connection-status">
+                    <span class="dot disconnected" id="connection-dot"></span>
+                    <span id="connection-text">Connecting...</span>
+                </div>
+                <div class="sidebar-user" id="sidebar-user"></div>
+                <a class="nav-logout" onclick="logout()" title="Logout">Logout</a>
             </div>
-            <a class="nav-item" onclick="logout()" style="color:var(--accent-red);border-top:1px solid var(--border);">Logout</a>
-        </aside>
+        </header>
 
         <!-- Main content -->
         <main class="main-content">
-            <header class="header">
-                <h1>SuperCoach AI Dashboard</h1>
-                <span class="round-info" id="header-info"></span>
-            </header>
 
-            <div class="content-area">
-
-                <!-- SECTION: Team Builder -->
-                <div id="section-team" class="section active">
-                    <div class="toolbar">
-                        <button class="btn" onclick="App.Team.importCSV()">&#128193; Import CSV</button>
-                        <button class="btn btn-danger" onclick="App.Team.clearTeam()">&#128465; Clear Team</button>
-                        <input type="file" id="csv-upload" accept=".csv" style="display:none" onchange="App.Team.handleCSV(event)">
-                        <div class="score-view-toggle" id="score-view-toggle">
-                            <button class="svt-btn active" data-view="live" onclick="App.Team.setScoreView('live')">Live</button>
-                            <button class="svt-btn" data-view="projected" onclick="App.Team.setScoreView('projected')">Proj</button>
-                            <button class="svt-btn" data-view="average" onclick="App.Team.setScoreView('average')">Avg</button>
+            <!-- SECTION: Team Builder -->
+            <div id="section-team" class="section active">
+                <!-- Stats Bar (SuperCoach-style) -->
+                <div class="stats-bar">
+                    <div class="stats-bar-left">
+                        <h2 class="stats-bar-title">My Team</h2>
+                        <small id="sidebar-info" class="stats-bar-sub">Connecting...</small>
+                    </div>
+                    <div class="stats-bar-stats">
+                        <div class="stat-pill">
+                            <span class="stat-pill-label">Score</span>
+                            <span class="stat-pill-value" id="live-total-bar">-</span>
                         </div>
-                        <div class="salary-counter">
-                            <span id="team-count">0</span>/30 players &nbsp;|&nbsp;
-                            Salary: <strong id="salary-total">$0</strong>
+                        <div class="stat-pill">
+                            <span class="stat-pill-label">Salary Left</span>
+                            <span class="stat-pill-value" id="salary-total">$0</span>
                         </div>
-                        <div class="salary-cap-bar">
-                            <div class="salary-cap-track">
-                                <div class="salary-cap-fill" id="salary-cap-fill"></div>
-                            </div>
-                            <span class="salary-cap-label" id="salary-cap-label">Remaining: $10,000,000</span>
+                        <div class="stat-pill">
+                            <span class="stat-pill-label">Players</span>
+                            <span class="stat-pill-value"><span id="team-count">0</span>/30</span>
+                        </div>
+                        <div class="stat-pill">
+                            <span class="stat-pill-label">Proj Score</span>
+                            <span class="stat-pill-value cyan" id="live-projected-bar">-</span>
                         </div>
                     </div>
+                    <div class="stats-bar-right">
+                        <div class="stats-bar-round" id="header-info">Round -</div>
+                    </div>
+                </div>
 
-                    <!-- Captain / Vice-Captain Picker -->
-                    <div class="captain-picker" id="captain-picker">
-                        <div class="captain-picker-item">
-                            <span class="captain-picker-label">Captain (2x)</span>
-                            <button class="captain-picker-btn captain" id="captain-btn" onclick="App.Team.toggleCaptainMode('captain')">
-                                <span class="captain-picker-badge cb-c">C</span>
-                                <span class="captain-picker-name" id="captain-name">Select Captain</span>
-                            </button>
+                <!-- Action Bar -->
+                <div class="toolbar">
+                    <button class="btn" onclick="App.Team.importCSV()">Import CSV</button>
+                    <button class="btn btn-danger" onclick="App.Team.clearTeam()">Clear Team</button>
+                    <input type="file" id="csv-upload" accept=".csv" style="display:none" onchange="App.Team.handleCSV(event)">
+                    <div class="score-view-toggle" id="score-view-toggle">
+                        <button class="svt-btn active" data-view="last" onclick="App.Team.setScoreView('last')">Last</button>
+                        <button class="svt-btn" data-view="live" onclick="App.Team.setScoreView('live')">Live</button>
+                        <button class="svt-btn" data-view="projected" onclick="App.Team.setScoreView('projected')">Proj</button>
+                        <button class="svt-btn" data-view="average" onclick="App.Team.setScoreView('average')">Avg</button>
+                    </div>
+                    <div class="toolbar-spacer"></div>
+                    <div class="team-view-tabs">
+                        <button class="team-view-tab active" data-view="field" onclick="App.Team.switchView('field')">FIELD</button>
+                        <button class="team-view-tab" data-view="list" onclick="App.Team.switchView('list')">LIST</button>
+                    </div>
+                    <button class="btn btn-sm" onclick="App.Team.syncAndRefreshScores()" id="live-sync-btn" title="Sync latest scores">Sync</button>
+                </div>
+
+                <!-- Captain / Vice-Captain Picker -->
+                <div class="captain-picker" id="captain-picker">
+                    <div class="captain-picker-item">
+                        <span class="captain-picker-label">Captain (2x)</span>
+                        <button class="captain-picker-btn captain" id="captain-btn" onclick="App.Team.toggleCaptainMode('captain')">
+                            <span class="captain-picker-badge cb-c">C</span>
+                            <span class="captain-picker-name" id="captain-name">Select Captain</span>
+                        </button>
+                    </div>
+                    <div class="captain-picker-item">
+                        <span class="captain-picker-label">Vice Captain</span>
+                        <button class="captain-picker-btn vc" id="vc-btn" onclick="App.Team.toggleCaptainMode('vc')">
+                            <span class="captain-picker-badge cb-vc">VC</span>
+                            <span class="captain-picker-name" id="vc-name">Select Vice Captain</span>
+                        </button>
+                    </div>
+                    <div class="captain-picker-divider"></div>
+                    <div class="captain-picker-item emergency-picker-group">
+                        <span class="captain-picker-label">Emergencies</span>
+                        <div class="emergency-slots" id="emergency-slots">
+                            <span class="emg-slot" id="emg-slot-1">E1: -</span>
+                            <span class="emg-slot" id="emg-slot-2">E2: -</span>
+                            <span class="emg-slot" id="emg-slot-3">E3: -</span>
+                            <span class="emg-slot" id="emg-slot-4">E4: -</span>
                         </div>
-                        <div class="captain-picker-item">
-                            <span class="captain-picker-label">Vice Captain</span>
-                            <button class="captain-picker-btn vc" id="vc-btn" onclick="App.Team.toggleCaptainMode('vc')">
-                                <span class="captain-picker-badge cb-vc">VC</span>
-                                <span class="captain-picker-name" id="vc-name">Select Vice Captain</span>
-                            </button>
+                        <button class="btn btn-sm" onclick="App.Team.toggleEmergencyMode()" id="emg-edit-btn" title="Edit emergencies">Edit</button>
+                    </div>
+                    <div class="captain-picker-hint" id="captain-hint" style="display:none;">
+                        Click a player card to assign
+                    </div>
+                </div>
+
+                <!-- Live Scores Bar (collapsed) -->
+                <div class="live-scores-bar" id="live-scores-bar">
+                    <div class="live-scores-header" onclick="App.Team.toggleLiveExpanded()">
+                        <span class="live-scores-title">Live Scores</span>
+                        <span class="live-scores-round" id="live-round-label">Round -</span>
+                        <span class="live-scores-total" id="live-total">-</span>
+                        <span class="live-scores-projected" id="live-projected">Proj: -</span>
+                        <span class="live-scores-games" id="live-games-status"></span>
+                        <button class="btn btn-sm" onclick="event.stopPropagation();App.Team.loadLiveScores()" id="live-refresh-btn" title="Refresh scores">&#8635;</button>
+                    </div>
+                    <div class="live-scores-players" id="live-scores-players" style="display:none;"></div>
+                </div>
+
+                <!-- Three-column Team Builder layout -->
+                <div class="team-builder">
+                    <!-- Left: Player Search -->
+                    <div class="search-sidebar">
+                        <div class="search-sidebar-header">
+                            <input class="input" id="player-search" type="text"
+                                   placeholder="Search for players, teams..."
+                                   oninput="App.Team.debounceSearch(this.value)">
                         </div>
-                        <div class="captain-picker-divider"></div>
-                        <div class="captain-picker-item emergency-picker-group">
-                            <span class="captain-picker-label">Emergencies</span>
-                            <div class="emergency-slots" id="emergency-slots">
-                                <span class="emg-slot" id="emg-slot-1">E1: -</span>
-                                <span class="emg-slot" id="emg-slot-2">E2: -</span>
-                                <span class="emg-slot" id="emg-slot-3">E3: -</span>
-                                <span class="emg-slot" id="emg-slot-4">E4: -</span>
-                            </div>
-                            <button class="btn btn-sm" onclick="App.Team.toggleEmergencyMode()" id="emg-edit-btn" title="Edit emergencies">Edit</button>
+                        <div class="search-sidebar-body" id="search-results">
+                            <div class="empty-state">Type a player name to search</div>
                         </div>
-                        <div class="captain-picker-hint" id="captain-hint" style="display:none;">
-                            Click a player card to assign
-                        </div>
+                        <!-- Fixture widget below search -->
+                        <div id="fixture-widget" class="fixture-widget sidebar-fixture"></div>
                     </div>
 
-                    <!-- Live Scores Bar -->
-                    <div class="live-scores-bar" id="live-scores-bar">
-                        <div class="live-scores-header" onclick="App.Team.toggleLiveExpanded()">
-                            <span class="live-scores-title">Live Scores</span>
-                            <span class="live-scores-round" id="live-round-label">Round -</span>
-                            <span class="live-scores-total" id="live-total">-</span>
-                            <span class="live-scores-projected" id="live-projected">Proj: -</span>
-                            <span class="live-scores-games" id="live-games-status"></span>
-                            <button class="btn btn-sm" onclick="event.stopPropagation();App.Team.syncAndRefreshScores()" id="live-sync-btn" title="Sync latest scores from sources">Sync</button>
-                            <button class="btn btn-sm" onclick="event.stopPropagation();App.Team.loadLiveScores()" id="live-refresh-btn" title="Refresh scores">&#8635;</button>
-                        </div>
-                        <div class="live-scores-players" id="live-scores-players" style="display:none;"></div>
-                    </div>
-
-                    <div class="team-builder">
-                        <!-- Left: Player Search -->
-                        <div class="panel">
-                            <div class="panel-header">
-                                <h3>Player Search</h3>
-                            </div>
-                            <div style="padding: 12px; border-bottom: 1px solid var(--border);">
-                                <input class="input" id="player-search" type="text"
-                                       placeholder="Search players by name..."
-                                       oninput="App.Team.debounceSearch(this.value)">
-                            </div>
-                            <div class="panel-body" id="search-results">
-                                <div class="empty-state">Type a player name to search</div>
-                            </div>
-                        </div>
-
-                        <!-- Right: Current Team -->
-                        <div class="panel">
-                            <div class="panel-header">
-                                <h3>My Team</h3>
-                                <div class="team-view-tabs">
-                                    <button class="team-view-tab active" data-view="field" onclick="App.Team.switchView('field')">FIELD</button>
-                                    <button class="team-view-tab" data-view="list" onclick="App.Team.switchView('list')">LIST</button>
-                                </div>
-                            </div>
-                            <div class="panel-body" id="team-display">
-                                <div id="field-view" class="team-view active"></div>
-                                <div id="list-view" class="team-view"></div>
-                            </div>
+                    <!-- Center + Right: Field + Bench -->
+                    <div class="panel team-panel">
+                        <div class="panel-body" id="team-display">
+                            <div id="field-view" class="team-view active"></div>
+                            <div id="list-view" class="team-view"></div>
                         </div>
                     </div>
                 </div>
 
-                <!-- SECTION: Dashboard -->
-                <div id="section-dashboard" class="section">
+                <!-- Salary Cap Bar -->
+                <div class="salary-bar-bottom">
+                    <div class="salary-cap-bar">
+                        <div class="salary-cap-track">
+                            <div class="salary-cap-fill" id="salary-cap-fill"></div>
+                        </div>
+                        <span class="salary-cap-label" id="salary-cap-label">Remaining: $10,000,000</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION: Dashboard -->
+            <div id="section-dashboard" class="section">
+                <div class="section-inner">
                     <h2 class="section-title">Analytics Dashboard</h2>
 
                     <div class="stat-cards" id="dash-stats">
@@ -189,9 +213,11 @@
                         <div class="loading"><div class="spinner"></div><div>Checking injuries...</div></div>
                     </div>
                 </div>
+            </div>
 
-                <!-- SECTION: AI Insights -->
-                <div id="section-ai" class="section">
+            <!-- SECTION: AI Insights -->
+            <div id="section-ai" class="section">
+                <div class="section-inner">
                     <h2 class="section-title">AI Insights</h2>
 
                     <div class="ai-tabs">
@@ -201,13 +227,12 @@
                         <button class="ai-tab" data-tab="chat" onclick="App.AI.switchTab('chat')">Chat</button>
                     </div>
 
-                    <!-- AI content panels -->
                     <div id="ai-panel-weekly" class="ai-panel">
                         <div class="ai-content" id="ai-weekly-content">
                             <div class="empty-state">Click to load weekly AI advice</div>
                         </div>
                         <div style="margin-top: 10px;">
-                            <button class="btn btn-primary" onclick="App.AI.loadWeekly()">&#129302; Get Weekly Advice</button>
+                            <button class="btn btn-primary" onclick="App.AI.loadWeekly()">Get Weekly Advice</button>
                         </div>
                     </div>
 
@@ -216,7 +241,7 @@
                             <div class="empty-state">Click to load captain advice</div>
                         </div>
                         <div style="margin-top: 10px;">
-                            <button class="btn btn-primary" onclick="App.AI.loadCaptain()">&#128081; Get Captain Advice</button>
+                            <button class="btn btn-primary" onclick="App.AI.loadCaptain()">Get Captain Advice</button>
                         </div>
                     </div>
 
@@ -225,7 +250,7 @@
                             <div class="empty-state">Click to load trade advice</div>
                         </div>
                         <div style="margin-top: 10px;">
-                            <button class="btn btn-primary" onclick="App.AI.loadTrades()">&#128260; Get Trade Advice</button>
+                            <button class="btn btn-primary" onclick="App.AI.loadTrades()">Get Trade Advice</button>
                         </div>
                     </div>
 
@@ -241,8 +266,8 @@
                         </div>
                     </div>
                 </div>
-
             </div>
+
         </main>
     </div>
 

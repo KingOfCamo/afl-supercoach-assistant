@@ -143,8 +143,9 @@ const App = {
         if (!this.state.connected) return;
 
         // Update nav
-        document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-        document.querySelector(`.nav-item[data-section="${name}"]`).classList.add('active');
+        document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
+        const tab = document.querySelector(`.nav-tab[data-section="${name}"]`);
+        if (tab) tab.classList.add('active');
 
         // Update sections
         document.querySelectorAll('.section').forEach(el => el.classList.remove('active'));
