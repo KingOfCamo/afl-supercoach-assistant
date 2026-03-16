@@ -1643,17 +1643,18 @@ const App = {
                 html += '<div class="empty-state" style="color:var(--accent-green);margin-bottom:12px">No injuries on your team!</div>';
             }
 
-            // All league injuries (collapsible)
+            // All league injuries (collapsible, scrollable)
             if (data.all_injuries && data.all_injuries.length) {
                 html += `<details style="margin-top:12px">`;
                 html += `<summary style="cursor:pointer;font-size:13px;color:#64748b;font-weight:600;margin-bottom:8px">All League Injuries (${data.all_injuries.length})</summary>`;
+                html += `<div style="max-height:400px;overflow-y:auto;padding-right:4px">`;
                 data.all_injuries.forEach(inj => {
                     html += `<div class="injury-alert" style="display:block;margin-bottom:6px;padding:8px;font-size:12px">`;
                     html += `<strong>${esc(inj.player_name)}</strong> (${esc(inj.team)}) — `;
                     html += `${esc(inj.injury_type || 'Unknown')} | Return: ${esc(inj.estimated_return || 'TBC')}`;
                     html += `</div>`;
                 });
-                html += `</details>`;
+                html += `</div></details>`;
             }
 
             container.innerHTML = html;
