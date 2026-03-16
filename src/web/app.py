@@ -30,6 +30,7 @@ async def lifespan(app: FastAPI):
     from src.sync.scheduler import get_scheduler
     from src.sync.tasks import (
         sync_afl_lineups,
+        sync_afl_news_injuries,
         sync_aflcomau_injuries,
         sync_fanfooty,
         sync_footywire_injuries,
@@ -88,6 +89,12 @@ async def lifespan(app: FastAPI):
         "interval", hours=2,
         id="afl_lineups",
         name="AFL Team Lineups",
+    )
+    scheduler.add_job(
+        sync_afl_news_injuries,
+        "interval", hours=4,
+        id="afl_news_injuries",
+        name="AFL News Injuries",
     )
 
     scheduler.start()

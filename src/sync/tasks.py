@@ -241,6 +241,32 @@ async def sync_afl_lineups() -> None:
         logger.error("sync_afl_lineups failed: %s", e)
 
 
+# ── AFL News Injuries ──
+
+
+async def sync_afl_news_injuries() -> None:
+    """Scrape AFL.com.au news articles for early injury detection."""
+    source = "afl_news_injuries"
+    if should_skip(source, off_day_hours=4.0):
+        return
+
+    record_start(source)
+    try:
+        from src.scrapers.afl_news import AflNewsScraper
+
+        scraper = AflNewsScraper()
+        try:
+            count = await scraper.scrape_news_injuries()
+        finally:
+            await scraper.close()
+
+        record_success(source, count)
+        logger.info("sync_afl_news_injuries: %d records", count)
+    except Exception as e:
+        record_error(source, str(e))
+        logger.error("sync_afl_news_injuries failed: %s", e)
+
+
 # ── Run all sources ──
 
 
@@ -257,6 +283,7 @@ async def sync_all() -> Dict[str, Any]:
         ("aflcomau_injuries", sync_aflcomau_injuries),
         ("fanfooty", sync_fanfooty),
         ("afl_lineups", sync_afl_lineups),
+        ("afl_news_injuries", sync_afl_news_injuries),
     ]
 
     for name, fn in tasks:

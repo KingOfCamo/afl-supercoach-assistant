@@ -9,8 +9,9 @@ from fastapi import APIRouter, BackgroundTasks, Query
 
 from src.sync.scheduler import get_scheduler, sync_status
 from src.sync.tasks import (
-    sync_aflcomau_injuries,
     sync_afl_lineups,
+    sync_afl_news_injuries,
+    sync_aflcomau_injuries,
     sync_all,
     sync_fanfooty,
     sync_footywire_injuries,
@@ -34,6 +35,7 @@ SOURCE_MAP = {
     "fanfooty": sync_fanfooty,
     "squiggle": sync_squiggle,
     "afl_lineups": sync_afl_lineups,
+    "afl_news_injuries": sync_afl_news_injuries,
 }
 
 

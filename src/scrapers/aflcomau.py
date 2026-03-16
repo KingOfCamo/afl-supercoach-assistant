@@ -160,38 +160,11 @@ class AflComAuScraper(BaseScraper):
 
                     count += 1
 
-            # Clear injuries for players no longer on any injury list
-            # Get all player IDs we just processed
-            injured_player_ids = set()
-            for i, table in enumerate(tables):
-                if i >= len(TEAMS_ALPHABETICAL):
-                    break
-                team = TEAMS_ALPHABETICAL[i]
-                for row in table.find_all("tr"):
-                    cells = row.find_all("td")
-                    if len(cells) != 3:
-                        continue
-                    pname = cells[0].get_text(strip=True)
-                    if not pname or pname.lower() == "player":
-                        continue
-                    p = session.execute(
-                        select(Player).where(
-                            Player.name.ilike(f"%{pname}%"),
-                        ).limit(1)
-                    ).scalar_one_or_none()
-                    if p:
-                        injured_player_ids.add(p.id)
-
-            # Remove stale injuries for players no longer listed
-            all_injuries = session.execute(select(Injury)).scalars().all()
-            stale_count = 0
-            for inj in all_injuries:
-                if inj.player_id not in injured_player_ids:
-                    session.delete(inj)
-                    stale_count += 1
-
-            if stale_count:
-                logger.info(f"Removed {stale_count} stale injury records")
+            # NOTE: We no longer delete injuries for players not on
+            # the structured list, because the news scraper may have
+            # added injuries that haven't appeared on the list yet.
+            # Stale injuries will be naturally updated when the player
+            # returns and is no longer mentioned in news articles.
 
             session.commit()
             logger.info(f"Scraped {count} injuries from AFL.com.au")
