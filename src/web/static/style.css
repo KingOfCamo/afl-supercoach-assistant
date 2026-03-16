@@ -42,8 +42,8 @@ body {
     background: var(--bg-primary);
     color: var(--text-primary);
     line-height: 1.5;
-    overflow: hidden;
     height: 100vh;
+    overflow: hidden;
 }
 
 /* Layout */
@@ -51,6 +51,7 @@ body {
     display: flex;
     flex-direction: column;
     height: 100vh;
+    overflow: hidden;
 }
 
 /* Top Navigation Bar */
@@ -137,7 +138,8 @@ body {
     flex: 1;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    overflow: auto;
+    min-height: 0;
 }
 
 .section-inner {
@@ -233,7 +235,8 @@ body {
     display: flex;
     flex-direction: column;
     flex: 1;
-    overflow: hidden;
+    min-height: 0;
+    overflow: auto;
 }
 
 /* Stat cards */
@@ -405,7 +408,7 @@ select.input {
     display: flex;
     gap: 0;
     flex: 1;
-    overflow: hidden;
+    min-height: 600px;
 }
 
 /* Left: Player Search Sidebar */
@@ -433,9 +436,10 @@ select.input {
 /* Center + Right: Team Panel */
 .team-panel {
     flex: 1;
-    overflow: hidden;
+    overflow: auto;
     display: flex;
     flex-direction: column;
+    min-width: 0;
 }
 
 .panel-header {
