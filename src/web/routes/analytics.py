@@ -160,6 +160,7 @@ def get_injuries(user: dict = Depends(get_current_user)) -> dict:
 
         return {
             "team_injuries": team_injuries,
+            "all_injuries": all_injuries,
             "all_injuries_count": len(all_injuries),
         }
     finally:

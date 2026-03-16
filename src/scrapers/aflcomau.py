@@ -112,21 +112,25 @@ class AflComAuScraper(BaseScraper):
 
                     status = _parse_status(estimated_return)
 
-                    # Find player in DB — try exact match on team first
-                    player = session.execute(
+                    # Find player in DB — match by name, prefer same team
+                    # Use normalize_team to handle aliases (e.g. "Swans" vs "Sydney")
+                    candidates = session.execute(
                         select(Player).where(
                             Player.name.ilike(f"%{player_name}%"),
-                            Player.team == team,
-                        ).limit(1)
-                    ).scalar_one_or_none()
+                        )
+                    ).scalars().all()
 
-                    # Fallback: match by name only
-                    if player is None:
-                        player = session.execute(
-                            select(Player).where(
-                                Player.name.ilike(f"%{player_name}%")
-                            ).limit(1)
-                        ).scalar_one_or_none()
+                    player = None
+                    if candidates:
+                        # Prefer player on the same team (normalized)
+                        norm_team = normalize_team(team)
+                        for c in candidates:
+                            if normalize_team(c.team) == norm_team:
+                                player = c
+                                break
+                        # Fallback: first name match
+                        if player is None:
+                            player = candidates[0]
 
                     if player is None:
                         # Create stub player

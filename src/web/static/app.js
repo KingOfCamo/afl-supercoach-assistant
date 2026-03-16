@@ -1628,18 +1628,34 @@ const App = {
             document.getElementById('stat-injuries').textContent = data.team_injuries.length;
 
             const container = document.getElementById('injuries-display');
-            if (!data.team_injuries.length) {
-                container.innerHTML = '<div class="empty-state" style="color:var(--accent-green)">No injuries on your team!</div>';
-                return;
+            let html = '';
+
+            // My team injuries
+            if (data.team_injuries.length) {
+                html += '<h4 style="margin:0 0 8px;font-size:13px;color:#64748b">My Team</h4>';
+                data.team_injuries.forEach(inj => {
+                    html += `<div class="injury-alert" style="display:block;margin-bottom:8px;padding:10px">`;
+                    html += `<strong>${esc(inj.player_name)}</strong> (${esc(inj.team)}) — `;
+                    html += `${esc(inj.injury_type || 'Unknown')} | Return: ${esc(inj.estimated_return || 'TBC')}`;
+                    html += `</div>`;
+                });
+            } else {
+                html += '<div class="empty-state" style="color:var(--accent-green);margin-bottom:12px">No injuries on your team!</div>';
             }
 
-            let html = '';
-            data.team_injuries.forEach(inj => {
-                html += `<div class="injury-alert" style="display:block;margin-bottom:8px;padding:10px">`;
-                html += `<strong>${esc(inj.player_name)}</strong> (${esc(inj.team)}) -- `;
-                html += `${esc(inj.injury_type || 'Unknown')} | Return: ${esc(inj.estimated_return || 'TBC')}`;
-                html += `</div>`;
-            });
+            // All league injuries (collapsible)
+            if (data.all_injuries && data.all_injuries.length) {
+                html += `<details style="margin-top:12px">`;
+                html += `<summary style="cursor:pointer;font-size:13px;color:#64748b;font-weight:600;margin-bottom:8px">All League Injuries (${data.all_injuries.length})</summary>`;
+                data.all_injuries.forEach(inj => {
+                    html += `<div class="injury-alert" style="display:block;margin-bottom:6px;padding:8px;font-size:12px">`;
+                    html += `<strong>${esc(inj.player_name)}</strong> (${esc(inj.team)}) — `;
+                    html += `${esc(inj.injury_type || 'Unknown')} | Return: ${esc(inj.estimated_return || 'TBC')}`;
+                    html += `</div>`;
+                });
+                html += `</details>`;
+            }
+
             container.innerHTML = html;
         },
     },
