@@ -1695,6 +1695,75 @@ select.input {
     color: white;
 }
 
+/* ——— Icon Legend ——— */
+.icon-legend {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 10px;
+    color: var(--text-secondary);
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    white-space: nowrap;
+}
+
+.legend-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.legend-icon.named {
+    background: none;
+    color: #059669;
+    font-size: 12px;
+    width: auto;
+    height: auto;
+}
+
+.legend-icon.played {
+    background: #059669;
+    color: white;
+    font-size: 8px;
+}
+
+.legend-icon.playing {
+    background: var(--accent-blue);
+    width: 10px;
+    height: 10px;
+    box-shadow: 0 0 4px var(--accent-blue);
+}
+
+.legend-icon.not-playing {
+    background: var(--accent-red);
+    color: white;
+    font-size: 8px;
+}
+
+.legend-icon.injured {
+    background: var(--accent-orange);
+    color: white;
+    font-size: 8px;
+}
+
+.legend-icon.match-emergency {
+    background: var(--accent-orange);
+    color: white;
+    font-size: 7px;
+    font-weight: 800;
+}
+
 /* ——— Lineup Status Indicators ——— */
 /* Lineup status — top-left badge with solid bg for visibility over guernsey */
 .fc-lineup-status {
