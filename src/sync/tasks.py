@@ -138,8 +138,9 @@ async def sync_aflcomau_injuries(force: bool = False) -> None:
 async def sync_fanfooty(force: bool = False) -> None:
     """Scrape SuperCoach scores from FanFooty for current round."""
     source = SOURCE_FANFOOTY
-    if not force and should_skip(source, 4.0):
-        logger.debug("Skipping %s — not match day and ran recently", source)
+    # Shorter skip window (10 min) — live scores need frequent refreshes
+    if not force and should_skip(source, 0.17):
+        logger.debug("Skipping %s — ran recently (< 10 min)", source)
         return
     record_start(source)
     try:
@@ -149,8 +150,15 @@ async def sync_fanfooty(force: bool = False) -> None:
         scraper = FanFootyScraper()
         try:
             count = await scraper.scrape_round(config.season, config.current_round)
-            record_success(source, count)
-            logger.info("FanFooty scores: %d players scraped", count)
+            if count > 0:
+                record_success(source, count)
+                logger.info("FanFooty scores: %d players scraped", count)
+            else:
+                # Don't record as success — allows retry sooner
+                logger.warning(
+                    "FanFooty returned 0 scores for %d R%d — not recording as success",
+                    config.season, config.current_round,
+                )
         finally:
             await scraper.close()
     except Exception as e:

@@ -65,7 +65,7 @@ class FanFootyScraper(BaseScraper):
             html = await self.fetch(url)
         except Exception as e:
             logger.error(f"Failed to fetch FanFooty: {e}")
-            return 0
+            raise  # Let caller handle — don't silently return 0
 
         return self._parse_scores_page(html, season, round_num)
 
@@ -78,14 +78,32 @@ class FanFootyScraper(BaseScraper):
         - SuperCoach score
         - Score breakdown (kicks, marks, etc.)
         """
+        if not html or len(html) < 200:
+            logger.warning(
+                "FanFooty returned empty/short HTML (%d bytes) for %d R%d",
+                len(html) if html else 0, season, round_num,
+            )
+            return 0
+
         soup = BeautifulSoup(html, "lxml")
         count = 0
+        parsed_rows = 0
+        unmatched_players: list[str] = []
 
         session = get_session()
         try:
             # FanFooty uses tables with class "sc-scores" or similar
-            # Look for player score tables
             tables = soup.find_all("table")
+
+            if not tables:
+                # Log preview for debugging HTML structure changes
+                preview = html[:500].replace("\n", " ")
+                logger.warning(
+                    "FanFooty: no tables found in HTML for %d R%d. "
+                    "Page structure may have changed. Preview: %s",
+                    season, round_num, preview,
+                )
+                return 0
 
             for table in tables:
                 rows = table.find_all("tr")
@@ -98,12 +116,23 @@ class FanFootyScraper(BaseScraper):
                     if result is None:
                         continue
 
+                    parsed_rows += 1
                     name, team, score = result
                     if self._upsert_score(session, name, team, score, season, round_num):
                         count += 1
 
             session.commit()
-            logger.info(f"Upserted {count} FanFooty scores for {season} R{round_num}")
+
+            if parsed_rows == 0:
+                logger.warning(
+                    "FanFooty: found %d tables but 0 valid player rows for %d R%d",
+                    len(tables), season, round_num,
+                )
+            else:
+                logger.info(
+                    "FanFooty %d R%d: %d upserted out of %d parsed rows",
+                    season, round_num, count, parsed_rows,
+                )
         except Exception:
             session.rollback()
             raise
@@ -150,13 +179,19 @@ class FanFootyScraper(BaseScraper):
         round_num: int,
     ) -> bool:
         """Insert or update a player's score. Returns True if upserted."""
-        # Find player by name (fuzzy match)
+        # Try exact name match first
         player = session.execute(  # type: ignore[union-attr]
-            select(Player).where(Player.name.ilike(f"%{player_name}%"))
+            select(Player).where(Player.name == player_name)
         ).scalar_one_or_none()
 
+        # Try fuzzy match if exact fails
         if player is None:
-            # Try matching by last name only
+            player = session.execute(  # type: ignore[union-attr]
+                select(Player).where(Player.name.ilike(f"%{player_name}%"))
+            ).scalar_one_or_none()
+
+        if player is None:
+            # Try matching by last name + team
             parts = player_name.split()
             if len(parts) >= 2:
                 last_name = parts[-1]
@@ -172,8 +207,26 @@ class FanFootyScraper(BaseScraper):
                     if len(team_matches) == 1:
                         player = team_matches[0]
 
+            # Try first initial + last name (e.g. "S. Fisher" -> "Sam Fisher")
+            if player is None and len(parts) >= 2:
+                initial = parts[0].rstrip(".")
+                if len(initial) == 1:
+                    last_name = parts[-1]
+                    candidates = session.execute(  # type: ignore[union-attr]
+                        select(Player).where(
+                            Player.name.ilike(f"{initial}%{last_name}%")
+                        )
+                    ).scalars().all()
+                    if team:
+                        candidates = [
+                            p for p in candidates
+                            if normalize_team(p.team) == team
+                        ]
+                    if len(candidates) == 1:
+                        player = candidates[0]
+
             if player is None:
-                logger.debug(f"Player not found: {player_name} ({team})")
+                logger.warning(f"Player not found: {player_name} ({team})")
                 return False
 
         # Check for existing score

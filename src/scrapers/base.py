@@ -52,13 +52,26 @@ class BaseScraper(ABC):
         for attempt in range(max_retries):
             try:
                 response = await client.get(url)
+                # Handle rate limiting with Retry-After header
+                if response.status_code == 429:
+                    retry_after = int(response.headers.get("Retry-After", 10))
+                    logger.warning(
+                        f"Rate limited (429) on {url}, waiting {retry_after}s"
+                    )
+                    await asyncio.sleep(retry_after)
+                    continue
                 response.raise_for_status()
-                return response.text
+                text = response.text
+                logger.debug(
+                    "Fetched %s: %d bytes, status %d",
+                    url, len(text), response.status_code,
+                )
+                return text
             except (httpx.HTTPStatusError, httpx.RequestError) as e:
                 if attempt == max_retries - 1:
                     logger.error(f"Failed to fetch {url} after {max_retries} attempts: {e}")
                     raise
-                wait = 2 ** (attempt + 1)
+                wait = 2 ** (attempt + 1) + 1  # Slightly longer backoff
                 logger.warning(
                     f"Retry {attempt + 1}/{max_retries} for {url}, waiting {wait}s: {e}"
                 )
