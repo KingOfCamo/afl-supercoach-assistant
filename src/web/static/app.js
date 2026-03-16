@@ -1396,8 +1396,9 @@ const App = {
             else if (s.is_vice_captain) html += '<span class="fc-role fc-role-vc">VC</span>';
             html += '</div>';
 
-            // Bottom: team + score + salary (same as bench)
+            // Bottom: team dot + team abbr + score + salary
             html += '<div class="fc-meta">';
+            html += `<span class="fc-team-dot" style="background:${teamColor}"></span>`;
             html += `<span class="fc-team">${this._esc(teamAbbr)}</span>`;
             html += `<span class="fc-score">${score}</span>`;
             html += `<span class="fc-salary">${salary}</span>`;
@@ -1456,6 +1457,7 @@ const App = {
             html += '</div>';
 
             html += '<div class="fc-meta">';
+            html += `<span class="fc-team-dot" style="background:${teamColor}"></span>`;
             html += `<span class="fc-team">${this._esc(teamAbbr)}</span>`;
             html += `<span class="fc-score">${score}</span>`;
             html += `<span class="fc-salary">${salary}</span>`;
