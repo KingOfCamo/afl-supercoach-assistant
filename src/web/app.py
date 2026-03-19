@@ -213,17 +213,23 @@ def create_app() -> FastAPI:
 
         config = get_config()
 
-        # Generate bye alerts
+        # Auto-detect current round from fixture data
+        detected_round = config.current_round
         bye_alerts = []
         try:
             from src.models.database import ByeRound, get_session as _get_session
+            from src.analytics.byes import detect_current_round
             from sqlalchemy import select, func
 
             session = _get_session()
             try:
-                # Check if upcoming rounds (current +1, +2) have byes
+                detected = detect_current_round(session, config.season)
+                if detected > 0:
+                    detected_round = detected
+
+                # Generate bye alerts based on detected round
                 for offset in (0, 1, 2):
-                    rnd = config.current_round + offset
+                    rnd = detected_round + offset
                     bye_count = session.execute(
                         select(func.count(ByeRound.id)).where(
                             ByeRound.season == config.season,
@@ -242,11 +248,11 @@ def create_app() -> FastAPI:
             finally:
                 session.close()
         except Exception:
-            pass  # Bye table may not exist yet
+            pass  # Tables may not exist yet
 
         return {
             "season": config.season,
-            "current_round": config.current_round,
+            "current_round": detected_round,
             "trades_remaining": config.trades_remaining,
             "boosts_remaining": config.boosts_remaining,
             "bye_alerts": bye_alerts,

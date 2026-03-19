@@ -119,14 +119,20 @@ def get_team(user: dict = Depends(get_current_user)) -> dict:
                 .limit(1)
             ).scalar_one_or_none()
 
-            # Lineup status for current round
+            # Lineup status for current round (auto-detect)
             from src.utils.config import get_config
             config = get_config()
+            try:
+                from src.analytics.byes import detect_current_round
+                current_rnd = detect_current_round(session, config.season)
+            except Exception:
+                current_rnd = config.current_round
+
             lineup = session.execute(
                 select(LineupStatus).where(
                     LineupStatus.player_id == player.id,
                     LineupStatus.season == config.season,
-                    LineupStatus.round == config.current_round,
+                    LineupStatus.round == current_rnd,
                 )
             ).scalar_one_or_none()
 
@@ -135,7 +141,7 @@ def get_team(user: dict = Depends(get_current_user)) -> dict:
             bye = session.execute(
                 select(ByeRound).where(
                     ByeRound.season == config.season,
-                    ByeRound.round == config.current_round,
+                    ByeRound.round == current_rnd,
                     ByeRound.team == player.team,
                 )
             ).scalar_one_or_none()

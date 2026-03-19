@@ -9,13 +9,45 @@ and provides impact analysis for team management during bye rounds.
 import logging
 from typing import Optional
 
-from sqlalchemy import select, delete
+from sqlalchemy import select, delete, func, case
 from sqlalchemy.orm import Session
 
 from src.models.database import ByeRound, Fixture, MyTeamSlot, Player, Injury
 from src.utils.teams import CANONICAL_TEAMS
 
 logger = logging.getLogger(__name__)
+
+
+def detect_current_round(session: Session, season: int) -> int:
+    """Detect the current round from fixture data.
+
+    Current round = first round where not all games are complete.
+    If all rounds complete, returns the last round.
+    """
+    results = (
+        session.execute(
+            select(
+                Fixture.round,
+                func.count(Fixture.id).label("total"),
+                func.sum(case((Fixture.is_complete == True, 1), else_=0)).label("complete"),
+            )
+            .where(Fixture.season == season)
+            .group_by(Fixture.round)
+            .order_by(Fixture.round)
+        )
+        .all()
+    )
+
+    if not results:
+        return 1
+
+    for row in results:
+        round_num, total, complete = row
+        if complete < total:
+            return round_num
+
+    # All rounds complete — return last round
+    return results[-1][0]
 
 
 def derive_bye_rounds(session: Session, season: int) -> int:

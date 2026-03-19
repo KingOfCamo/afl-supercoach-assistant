@@ -1439,6 +1439,84 @@ select.input {
 .sidebar-fixture .fixture-title {
     font-size: 11px;
 }
+
+/* Fixture round navigation */
+.fixture-nav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px 10px 6px;
+    border-bottom: 1px solid var(--border);
+}
+.fix-nav-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.fix-nav-btn:hover:not(:disabled) {
+    background: var(--bg-hover);
+    border-color: var(--border-hover);
+}
+.fix-nav-btn:disabled {
+    opacity: 0.3;
+    cursor: default;
+}
+.fix-nav-round {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-primary);
+    cursor: pointer;
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+.fix-nav-round:hover {
+    background: var(--bg-hover);
+}
+.fix-nav-round.fix-current {
+    color: var(--accent-cyan);
+}
+.fix-nav-round small {
+    font-weight: 400;
+    font-size: 9px;
+    color: var(--accent-cyan);
+}
+
+/* Bye teams banner in fixture widget */
+.fix-bye-banner {
+    padding: 5px 10px;
+    font-size: 10px;
+    background: rgba(71, 85, 105, 0.1);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+.fix-bye-label {
+    background: #475569;
+    color: #e2e8f0;
+    font-size: 8px;
+    font-weight: 800;
+    padding: 1px 4px;
+    border-radius: 2px;
+    letter-spacing: 0.5px;
+}
+.fix-bye-team {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    border-left: 2px solid;
+    padding-left: 4px;
+}
 .fixture-widget {
     margin-top: 12px;
     background: var(--bg-card);

@@ -88,6 +88,7 @@ const App = {
         config: null,
         currentSection: 'team',
         connected: false,
+        selectedRound: null,  // round the user is viewing (null = current)
     },
 
     async init() {
@@ -824,19 +825,26 @@ const App = {
             btn.textContent = 'Syncing...';
             btn.disabled = true;
             try {
-                // Foreground sync: players + scores (waits for completion)
+                // Sync scores + fixtures + byes + lineups in parallel
                 const scoreSync = authFetch(`${API_BASE}/api/sync/scores`, {method: 'POST'});
-                // Lineups in parallel (foreground)
-                const lineupSync = authFetch(`${API_BASE}/api/sync/trigger?source=afl_lineups&wait=true`, {method: 'POST'});
+                const lineupSync = authFetch(`${API_BASE}/api/sync/trigger?source=afl_lineups`, {method: 'POST'});
 
-                const [scoreResult, lineupResult] = await Promise.all([scoreSync, lineupSync]);
-                const scoreData = await scoreResult.json().catch(() => ({}));
-                console.log('Score sync result:', scoreData);
+                await Promise.all([scoreSync, lineupSync]);
 
-                // Now load the updated data
+                // Re-fetch config to get updated current_round
+                const configRes = await authFetch(`${API_BASE}/api/config`, {signal: AbortSignal.timeout(5000)});
+                App.state.config = await configRes.json();
+                const c = App.state.config;
+                document.getElementById('sidebar-info').textContent =
+                    `${c.season} | Round ${c.current_round}`;
+                document.getElementById('header-info').textContent =
+                    `Round ${c.current_round} | ${c.season} | ${c.trades_remaining} trades left`;
+
+                // Reload all data with fresh round info
                 await Promise.all([
                     this.loadLiveScores(),
                     this.loadTeam(),
+                    this.loadFixtures(),
                 ]);
             } catch (e) {
                 console.error('Score sync failed:', e);
@@ -864,10 +872,11 @@ const App = {
         // --- Fixtures ---
         _fixtureData: null,
 
-        async loadFixtures() {
-            const round = App.state.config ? App.state.config.current_round : 1;
+        async loadFixtures(roundOverride) {
+            const round = roundOverride || App.state.selectedRound
+                || (App.state.config ? App.state.config.current_round : 1);
             try {
-                const res = await authFetch(`${API_BASE}/api/fixtures/round?round_num=${round}`);
+                const res = await authFetch(`${API_BASE}/api/fixtures/db-round?round_num=${round}`);
                 const data = await res.json();
                 this._fixtureData = data;
                 this._renderFixtureWidget();
@@ -876,30 +885,67 @@ const App = {
             }
         },
 
+        changeRound(delta) {
+            const current = App.state.config ? App.state.config.current_round : 1;
+            const maxRound = (this._fixtureData && this._fixtureData.max_round) || 24;
+            const viewing = App.state.selectedRound || current;
+            const next = Math.max(1, Math.min(maxRound, viewing + delta));
+            App.state.selectedRound = next;
+            this.loadFixtures(next);
+        },
+
+        goToCurrentRound() {
+            App.state.selectedRound = null;
+            this.loadFixtures();
+        },
+
         _renderFixtureWidget() {
             const container = document.getElementById('fixture-widget');
-            if (!container || !this._fixtureData || !this._fixtureData.matches) return;
+            if (!container || !this._fixtureData) return;
 
-            const matches = this._fixtureData.matches;
-            if (!matches.length) {
-                container.innerHTML = '<div class="fixture-empty">No fixtures available</div>';
+            const data = this._fixtureData;
+            const matches = data.matches || [];
+            const currentRound = App.state.config ? App.state.config.current_round : 1;
+            const viewingRound = data.round;
+            const isCurrent = viewingRound === currentRound;
+            const maxRound = data.max_round || 24;
+
+            // Round navigation header
+            let html = '<div class="fixture-nav">';
+            html += `<button class="fix-nav-btn" onclick="App.Team.changeRound(-1)" ${viewingRound <= 1 ? 'disabled' : ''}>&#9664;</button>`;
+            html += `<span class="fix-nav-round${isCurrent ? ' fix-current' : ''}" onclick="App.Team.goToCurrentRound()">`;
+            html += `Round ${viewingRound}`;
+            if (isCurrent) html += ' <small>(Current)</small>';
+            html += '</span>';
+            html += `<button class="fix-nav-btn" onclick="App.Team.changeRound(1)" ${viewingRound >= maxRound ? 'disabled' : ''}>&#9654;</button>`;
+            html += '</div>';
+
+            // Bye teams banner
+            if (data.bye_teams && data.bye_teams.length) {
+                html += '<div class="fix-bye-banner">';
+                html += '<span class="fix-bye-label">BYE</span> ';
+                html += data.bye_teams.map(t => {
+                    const abbr = TEAM_ABBREVS[t] || t;
+                    const color = TEAM_COLORS[t] || '#666';
+                    return `<span class="fix-bye-team" style="border-color:${color}">${this._esc(abbr)}</span>`;
+                }).join(' ');
+                html += '</div>';
+            }
+
+            if (!matches.length && (!data.bye_teams || !data.bye_teams.length)) {
+                html += '<div class="fixture-empty">No fixtures available</div>';
+                container.innerHTML = html;
                 return;
             }
 
-            let html = '<div class="fixture-header">';
-            html += `<span class="fixture-title">Round ${this._fixtureData.round} Fixtures</span>`;
-            html += '</div>';
             html += '<div class="fixture-list">';
 
             for (const m of matches) {
-                const homeSlug = (m.home_team || '').toLowerCase().replace(/\s+/g, '-');
-                const awaySlug = (m.away_team || '').toLowerCase().replace(/\s+/g, '-');
                 const homeColor = TEAM_COLORS[m.home_team] || '#444';
                 const awayColor = TEAM_COLORS[m.away_team] || '#444';
-                const homeAbbr = TEAM_ABBREVS[m.home_team] || m.home_abbr || '???';
-                const awayAbbr = TEAM_ABBREVS[m.away_team] || m.away_abbr || '???';
+                const homeAbbr = TEAM_ABBREVS[m.home_team] || (m.home_team || '').substring(0, 3).toUpperCase();
+                const awayAbbr = TEAM_ABBREVS[m.away_team] || (m.away_team || '').substring(0, 3).toUpperCase();
 
-                // Format date/time
                 let timeStr = '';
                 if (m.date) {
                     const d = new Date(m.date);
@@ -908,10 +954,9 @@ const App = {
                     timeStr = `${day} ${time}`;
                 }
 
-                // Match status
                 let statusClass = '';
                 let scoreHtml = '';
-                if (m.status === 'CONCLUDED') {
+                if (m.status === 'CONCLUDED' || m.is_complete) {
                     statusClass = 'concluded';
                     scoreHtml = `<span class="fix-score">${m.home_score ?? '-'} - ${m.away_score ?? '-'}</span>`;
                 } else if (m.status === 'LIVE' || m.status === 'PLAYING') {
@@ -932,8 +977,6 @@ const App = {
                 html += `<span class="fix-abbr">${awayAbbr}</span>`;
                 html += `</div>`;
                 html += `</div>`;
-
-                // Venue line
                 html += `<div class="fix-venue">${m.venue || ''}</div>`;
             }
 

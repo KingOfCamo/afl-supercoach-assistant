@@ -13,6 +13,7 @@ from src.sync.tasks import (
     sync_afl_news_injuries,
     sync_aflcomau_injuries,
     sync_all,
+    sync_bye_rounds,
     sync_fanfooty,
     sync_footywire_injuries,
     sync_footywire_scores,
@@ -36,6 +37,7 @@ SOURCE_MAP = {
     "squiggle": sync_squiggle,
     "afl_lineups": sync_afl_lineups,
     "afl_news_injuries": sync_afl_news_injuries,
+    "bye_rounds": sync_bye_rounds,
 }
 
 
@@ -55,6 +57,37 @@ def get_sync_status() -> dict:
         "sources": dict(sync_status),
         "next_scheduled_runs": next_runs,
     }
+
+
+@router.post("/scores", status_code=200)
+async def sync_scores_endpoint() -> dict:
+    """Sync scores + fixtures + bye data. Called by the SYNC button."""
+    results = {}
+    try:
+        await sync_squiggle()
+        results["squiggle"] = "ok"
+    except Exception as e:
+        results["squiggle"] = str(e)
+
+    try:
+        await sync_bye_rounds()
+        results["bye_rounds"] = "ok"
+    except Exception as e:
+        results["bye_rounds"] = str(e)
+
+    try:
+        await sync_supercoach_round_data()
+        results["supercoach_round"] = "ok"
+    except Exception as e:
+        results["supercoach_round"] = str(e)
+
+    try:
+        await sync_fanfooty()
+        results["fanfooty"] = "ok"
+    except Exception as e:
+        results["fanfooty"] = str(e)
+
+    return {"status": "complete", "results": results}
 
 
 @router.post("/trigger", status_code=202)
