@@ -35,6 +35,7 @@
                     <a class="nav-tab" data-section="dashboard" onclick="App.showSection('dashboard')">DASHBOARD</a>
                     <a class="nav-tab" data-section="ai" onclick="App.showSection('ai')">AI INSIGHTS</a>
                     <a class="nav-tab" data-section="byes" onclick="App.showSection('byes')">BYE PLANNER</a>
+                    <a class="nav-tab" data-section="warroom" onclick="App.showSection('warroom')">TRADE WAR ROOM</a>
                 </nav>
             </div>
             <div class="top-nav-right">
@@ -319,6 +320,52 @@
                     <h3 class="subsection-title">Bye-Improving Trades</h3>
                     <div id="bye-trade-suggestions">
                         <div class="empty-state">Trade suggestions will appear once bye data is loaded</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION: Trade War Room -->
+            <div id="section-warroom" class="section">
+                <div class="section-inner">
+                    <h2 class="section-title">Trade War Room</h2>
+
+                    <!-- Trade Status Bar -->
+                    <div class="warroom-status" id="warroom-status">
+                        <div class="loading"><div class="spinner"></div><div>Loading trade data...</div></div>
+                    </div>
+
+                    <!-- Problems Detected -->
+                    <div class="warroom-panel" id="warroom-problems"></div>
+
+                    <!-- AI Recommendations -->
+                    <div class="warroom-panel">
+                        <div class="warroom-panel-header">
+                            <h3>AI Trade Recommendations</h3>
+                            <button class="btn btn-primary btn-optimise" onclick="App.WarRoom.generateRecommendations()" id="warroom-generate-btn">Analyse My Team</button>
+                        </div>
+                        <div id="warroom-recommendations">
+                            <div class="empty-state">Click "Analyse My Team" to get AI-powered trade recommendations</div>
+                        </div>
+                    </div>
+
+                    <!-- Ask the AI -->
+                    <div class="warroom-panel">
+                        <h3>Ask the AI</h3>
+                        <div class="warroom-chat-log" id="warroom-chat-log"></div>
+                        <div class="warroom-chat-input">
+                            <input class="input" id="warroom-chat-input" type="text"
+                                   placeholder="What about trading Gulden to Bontempelli?"
+                                   onkeydown="if(event.key==='Enter')App.WarRoom.askQuestion()">
+                            <button class="btn btn-primary" onclick="App.WarRoom.askQuestion()">Ask</button>
+                        </div>
+                    </div>
+
+                    <!-- Trade History -->
+                    <div class="warroom-panel">
+                        <h3>Trade History</h3>
+                        <div id="warroom-history">
+                            <div class="empty-state">No trades yet this season</div>
+                        </div>
                     </div>
                 </div>
             </div>

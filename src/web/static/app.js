@@ -167,6 +167,7 @@ const App = {
         // Load data when switching sections
         if (name === 'dashboard') this.Dashboard.loadAll();
         if (name === 'byes') this.Byes.loadAll();
+        if (name === 'warroom') this.WarRoom.loadAll();
     },
 
     // --- Team Builder ---
@@ -2193,6 +2194,135 @@ const App = {
                 html += '</div>';
             }
             html += '</div>';
+            container.innerHTML = html;
+        },
+    },
+
+    // --- Trade War Room ---
+    WarRoom: {
+        _data: null,
+        _chatHistory: [],
+
+        async loadAll() {
+            const round = App.state.config ? App.state.config.current_round : 1;
+            try {
+                const res = await authFetch(`${API_BASE}/api/analytics/trade-warroom?round=${round}`);
+                this._data = await res.json();
+                this.renderStatusBar(this._data);
+                this.renderProblems(this._data.problems);
+                this.renderHistory(this._data.trade_history);
+            } catch (e) {
+                console.error('War room load failed:', e);
+                document.getElementById('warroom-status').innerHTML =
+                    '<div class="empty-state">Failed to load trade data</div>';
+            }
+        },
+
+        renderStatusBar(data) {
+            const container = document.getElementById('warroom-status');
+            container.innerHTML = `
+                <div class="wr-stat"><span class="wr-stat-label">Trades</span><span class="wr-stat-value">${data.trades_remaining}/${data.total_trades}</span></div>
+                <div class="wr-stat"><span class="wr-stat-label">Boosts</span><span class="wr-stat-value">${data.boosts_remaining}</span></div>
+                <div class="wr-stat"><span class="wr-stat-label">Budget</span><span class="wr-stat-value">$${(data.budget_remaining || 0).toLocaleString()}</span></div>
+                <div class="wr-stat"><span class="wr-stat-label">Round</span><span class="wr-stat-value">${data.round}</span></div>
+            `;
+        },
+
+        renderProblems(problems) {
+            const container = document.getElementById('warroom-problems');
+            if (!problems || !problems.length) {
+                container.innerHTML = '<h3>Team Scan</h3><div class="wr-no-problems">No urgent problems detected. Your team looks healthy.</div>';
+                return;
+            }
+            const emoji = {critical: 'RED', warning: 'YEL', info: 'INFO'};
+            let html = `<h3>Problems Detected (${problems.length})</h3><div class="wr-problems-list">`;
+            for (const p of problems) {
+                html += `<div class="wr-problem severity-${p.severity}">`;
+                html += `<div class="wr-problem-header"><span>${esc(p.name)}</span><span class="wr-problem-price">$${(p.price || 0).toLocaleString()}</span></div>`;
+                html += `<div class="wr-problem-detail">${esc(p.detail)}</div>`;
+                html += `<div class="wr-problem-rec">${esc(p.recommendation)}</div>`;
+                html += `</div>`;
+            }
+            html += '</div>';
+            container.innerHTML = html;
+        },
+
+        async generateRecommendations() {
+            const btn = document.getElementById('warroom-generate-btn');
+            const container = document.getElementById('warroom-recommendations');
+            btn.disabled = true;
+            btn.textContent = 'Analysing...';
+            container.innerHTML = '<div class="loading"><div class="spinner"></div><div>AI is analysing your team...</div></div>';
+
+            const round = App.state.config ? App.state.config.current_round : 1;
+            try {
+                const res = await authFetch(`${API_BASE}/api/ai/trade-warroom`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({round, season: 2026}),
+                });
+                const data = await res.json();
+                container.innerHTML = `<div class="wr-ai-response">${renderMarkdown(data.recommendations)}</div>`;
+            } catch (e) {
+                container.innerHTML = `<div class="empty-state" style="color:var(--accent-red)">Failed: ${e.message}</div>`;
+            }
+            btn.disabled = false;
+            btn.textContent = 'Analyse My Team';
+        },
+
+        async askQuestion() {
+            const input = document.getElementById('warroom-chat-input');
+            const question = input.value.trim();
+            if (!question) return;
+
+            const log = document.getElementById('warroom-chat-log');
+            log.innerHTML += `<div class="wr-chat-msg wr-chat-user">${esc(question)}</div>`;
+            log.innerHTML += `<div class="wr-chat-msg wr-chat-ai" id="wr-chat-pending"><div class="loading" style="padding:8px"><div class="spinner"></div></div></div>`;
+            input.value = '';
+            log.scrollTop = log.scrollHeight;
+
+            const round = App.state.config ? App.state.config.current_round : 1;
+            try {
+                const res = await authFetch(`${API_BASE}/api/ai/trade-chat`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        round, season: 2026, question,
+                        history: this._chatHistory,
+                    }),
+                });
+                const data = await res.json();
+                const pending = document.getElementById('wr-chat-pending');
+                if (pending) {
+                    pending.id = '';
+                    pending.innerHTML = renderMarkdown(data.answer);
+                }
+                this._chatHistory.push({role: 'user', content: question});
+                this._chatHistory.push({role: 'assistant', content: data.answer});
+            } catch (e) {
+                const pending = document.getElementById('wr-chat-pending');
+                if (pending) {
+                    pending.id = '';
+                    pending.innerHTML = `<span style="color:var(--accent-red)">Error: ${e.message}</span>`;
+                }
+            }
+            log.scrollTop = log.scrollHeight;
+        },
+
+        renderHistory(history) {
+            const container = document.getElementById('warroom-history');
+            if (!history || !history.length) {
+                container.innerHTML = '<div class="empty-state">No trades yet this season</div>';
+                return;
+            }
+            let html = '<table class="data-table"><thead><tr><th>Round</th><th>Out</th><th>In</th><th class="right">Price Diff</th></tr></thead><tbody>';
+            for (const t of history) {
+                const diff = (t.price_in || 0) - (t.price_out || 0);
+                const cls = diff > 0 ? 'style="color:var(--accent-red)"' : diff < 0 ? 'style="color:var(--accent-green)"' : '';
+                html += `<tr><td>R${t.round}</td><td>${esc(t.player_out_name)}</td><td>${esc(t.player_in_name)}</td>`;
+                html += `<td class="right" ${cls}>${diff >= 0 ? '+' : ''}$${diff.toLocaleString()}</td></tr>`;
+            }
+            html += '</tbody></table>';
             container.innerHTML = html;
         },
     },

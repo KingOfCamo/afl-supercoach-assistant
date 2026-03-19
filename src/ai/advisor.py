@@ -39,13 +39,13 @@ class SuperCoachAdvisor:
             )
         self.client = Anthropic(api_key=self.config.ai.api_key)
 
-    def _call_claude(self, user_message: str) -> str:
+    def _call_claude(self, user_message: str, system_override: str = None) -> str:
         """Send a message to Claude and return the response text."""
         try:
             response = self.client.messages.create(
                 model=self.config.ai.model,
                 max_tokens=self.config.ai.max_tokens,
-                system=SYSTEM_PROMPT,
+                system=system_override or SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": user_message}],
             )
             return response.content[0].text

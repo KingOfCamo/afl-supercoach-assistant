@@ -3053,3 +3053,133 @@ select.input {
     gap: 8px;
     border-top: 1px solid var(--border);
 }
+
+/* --- Trade War Room --- */
+.warroom-status {
+    display: flex;
+    gap: 16px;
+    padding: 12px 16px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 16px;
+}
+.wr-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+}
+.wr-stat-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+.wr-stat-value {
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--text-primary);
+}
+.warroom-panel {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 16px;
+}
+.warroom-panel h3 {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 12px;
+}
+.warroom-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+.warroom-panel-header h3 { margin: 0; }
+
+/* Problems */
+.wr-problems-list { display: flex; flex-direction: column; gap: 8px; }
+.wr-problem {
+    padding: 10px 14px;
+    border-radius: 8px;
+    border-left: 3px solid;
+}
+.wr-problem.severity-critical { border-color: var(--accent-red); background: rgba(239,68,68,0.06); }
+.wr-problem.severity-warning { border-color: var(--accent-yellow); background: rgba(245,158,11,0.06); }
+.wr-problem.severity-info { border-color: var(--accent-blue); background: rgba(59,130,246,0.06); }
+.wr-problem-header {
+    display: flex;
+    justify-content: space-between;
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--text-primary);
+    margin-bottom: 3px;
+}
+.wr-problem-price { color: var(--text-muted); font-weight: 600; }
+.wr-problem-detail { font-size: 12px; color: var(--text-secondary); }
+.wr-problem-rec { font-size: 12px; font-style: italic; color: var(--text-secondary); margin-top: 2px; }
+.wr-no-problems {
+    padding: 16px;
+    text-align: center;
+    color: var(--accent-green);
+    font-weight: 600;
+}
+
+/* AI Response */
+.wr-ai-response {
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--text-primary);
+}
+.wr-ai-response h2, .wr-ai-response h3 {
+    font-size: 14px;
+    font-weight: 700;
+    margin: 16px 0 6px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+    color: var(--accent-cyan);
+}
+.wr-ai-response strong { color: var(--text-primary); }
+
+/* Chat */
+.warroom-chat-log {
+    max-height: 350px;
+    overflow-y: auto;
+    margin-bottom: 10px;
+}
+.wr-chat-msg {
+    padding: 8px 12px;
+    border-radius: 8px;
+    margin-bottom: 6px;
+    max-width: 85%;
+    font-size: 13px;
+    line-height: 1.5;
+}
+.wr-chat-user {
+    background: var(--accent-blue);
+    color: white;
+    margin-left: auto;
+    border-bottom-right-radius: 3px;
+}
+.wr-chat-ai {
+    background: var(--bg-card);
+    color: var(--text-primary);
+    border-bottom-left-radius: 3px;
+}
+.warroom-chat-input {
+    display: flex;
+    gap: 8px;
+}
+.warroom-chat-input .input { flex: 1; }
+
+@media (max-width: 768px) {
+    .warroom-status { flex-wrap: wrap; }
+    .wr-stat { flex: 1 1 45%; }
+    .wr-chat-msg { max-width: 95%; }
+}
