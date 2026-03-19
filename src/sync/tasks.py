@@ -220,21 +220,21 @@ async def sync_squiggle() -> None:
 async def sync_afl_lineups() -> None:
     """Scrape team lineups — try FootyWire first (reliable), AFL API as fallback."""
     source = "afl_lineups"
-    logger.info("sync_afl_lineups: starting")
+    print(f"[LINEUP] sync_afl_lineups starting", flush=True)
     if should_skip(source, off_day_hours=4.0):
-        logger.info("sync_afl_lineups: skipped (recently run)")
+        print(f"[LINEUP] skipped (recently run)", flush=True)
         return
 
     record_start(source)
     config = get_config()
     count = 0
-    logger.info("sync_afl_lineups: season=%d round=%d", config.season, config.current_round)
+    print(f"[LINEUP] season={config.season} round={config.current_round}", flush=True)
 
     # Source 1: FootyWire (server-rendered HTML, always works)
     try:
         from src.scrapers.afl_lineups import scrape_footywire_selections
 
-        logger.info("sync_afl_lineups: trying FootyWire...")
+        print(f"[LINEUP] trying FootyWire...", flush=True)
         count = await scrape_footywire_selections(config.season, config.current_round)
         if count > 0:
             record_success(source, count)
@@ -365,8 +365,11 @@ async def sync_all() -> Dict[str, Any]:
 
     for name, fn in tasks:
         try:
+            print(f"[SYNC_ALL] running: {name}", flush=True)
             await fn()
+            print(f"[SYNC_ALL] done: {name}", flush=True)
         except Exception as e:
+            print(f"[SYNC_ALL] FAILED: {name}: {e}", flush=True)
             logger.error("sync_all: %s failed: %s", name, e)
 
     return dict(sync_status)
