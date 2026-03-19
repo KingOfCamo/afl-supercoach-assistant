@@ -170,6 +170,7 @@ const App = {
         if (name === 'byes') this.Byes.loadAll();
         if (name === 'warroom') this.WarRoom.loadAll();
         if (name === 'ownership') this.Ownership.loadAll();
+        if (name === 'tracker') this.Tracker.loadAll();
     },
 
     // --- Team Builder ---
@@ -2464,6 +2465,198 @@ const App = {
             } catch (e) {
                 container.innerHTML = `<div class="empty-state" style="color:var(--accent-red)">Error: ${e.message}</div>`;
             }
+        },
+    },
+
+    // --- Season Tracker ---
+    Tracker: {
+        _data: null,
+        _chartMode: 'cumulative',
+
+        async loadAll() {
+            try {
+                const res = await authFetch(`${API_BASE}/api/analytics/season-tracker`);
+                this._data = await res.json();
+                this.renderSummary(this._data.summary);
+                this.renderChart(this._data.round_scores);
+                this.renderCaptain(this._data.captain);
+                this.renderTrades(this._data.trades);
+                this.renderRating(this._data);
+            } catch (e) {
+                console.error('Tracker load failed:', e);
+            }
+        },
+
+        renderSummary(s) {
+            document.getElementById('tracker-summary').innerHTML = `
+                <div class="wr-stat"><span class="wr-stat-label">Total</span><span class="wr-stat-value">${(s.total_score || 0).toLocaleString()}</span></div>
+                <div class="wr-stat"><span class="wr-stat-label">Avg/Round</span><span class="wr-stat-value">${s.average_score || '-'}</span></div>
+                <div class="wr-stat"><span class="wr-stat-label">Best</span><span class="wr-stat-value">${s.best_round ? `${s.best_round.score.toLocaleString()} (R${s.best_round.round})` : '-'}</span></div>
+                <div class="wr-stat"><span class="wr-stat-label">Rounds</span><span class="wr-stat-value">${s.rounds_played}</span></div>
+                <div class="wr-stat"><span class="wr-stat-label">Trades Left</span><span class="wr-stat-value">${s.trades_remaining}/30</span></div>
+            `;
+        },
+
+        setChartMode(mode) {
+            this._chartMode = mode;
+            document.getElementById('chart-btn-cumulative').classList.toggle('active', mode === 'cumulative');
+            document.getElementById('chart-btn-round').classList.toggle('active', mode === 'round');
+            if (this._data) this.renderChart(this._data.round_scores);
+        },
+
+        renderChart(roundScores) {
+            const canvas = document.getElementById('tracker-chart');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const dpr = window.devicePixelRatio || 1;
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width * dpr;
+            canvas.height = 260 * dpr;
+            canvas.style.width = rect.width + 'px';
+            canvas.style.height = '260px';
+            ctx.scale(dpr, dpr);
+
+            const w = rect.width, h = 260;
+            const pad = {top: 20, right: 20, bottom: 35, left: 55};
+            const cw = w - pad.left - pad.right, ch = h - pad.top - pad.bottom;
+
+            ctx.clearRect(0, 0, w, h);
+
+            if (!roundScores || !roundScores.length) {
+                ctx.fillStyle = '#94a3b8'; ctx.font = '13px sans-serif'; ctx.textAlign = 'center';
+                ctx.fillText('No round data yet', w / 2, h / 2);
+                return;
+            }
+
+            let data;
+            if (this._chartMode === 'cumulative') {
+                let cum = 0;
+                data = roundScores.map(r => { cum += r.score || 0; return cum; });
+            } else {
+                data = roundScores.map(r => r.score || 0);
+            }
+
+            const maxVal = Math.max(...data) * 1.1 || 100;
+            const minVal = this._chartMode === 'round' ? Math.min(...data) * 0.9 : 0;
+            const xStep = cw / Math.max(data.length - 1, 1);
+
+            // Grid
+            ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.lineWidth = 1;
+            for (let i = 0; i <= 4; i++) {
+                const y = pad.top + (ch / 4) * i;
+                ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(w - pad.right, y); ctx.stroke();
+                const val = maxVal - ((maxVal - minVal) / 4) * i;
+                ctx.fillStyle = '#64748b'; ctx.font = '10px sans-serif'; ctx.textAlign = 'right';
+                ctx.fillText(Math.round(val).toLocaleString(), pad.left - 6, y + 3);
+            }
+
+            // Line
+            ctx.beginPath(); ctx.strokeStyle = '#6366f1'; ctx.lineWidth = 2.5; ctx.lineJoin = 'round';
+            data.forEach((val, i) => {
+                const x = pad.left + i * xStep;
+                const y = pad.top + ch - ((val - minVal) / (maxVal - minVal)) * ch;
+                i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+            });
+            ctx.stroke();
+
+            // Fill
+            ctx.lineTo(pad.left + (data.length - 1) * xStep, pad.top + ch);
+            ctx.lineTo(pad.left, pad.top + ch);
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(99,102,241,0.08)'; ctx.fill();
+
+            // Points + X labels
+            ctx.fillStyle = '#64748b'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+            data.forEach((val, i) => {
+                const x = pad.left + i * xStep;
+                const y = pad.top + ch - ((val - minVal) / (maxVal - minVal)) * ch;
+                ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2);
+                ctx.fillStyle = '#6366f1'; ctx.fill();
+                ctx.fillStyle = '#64748b';
+                ctx.fillText(`R${roundScores[i].round}`, x, h - 10);
+            });
+        },
+
+        renderCaptain(c) {
+            const statsEl = document.getElementById('tracker-captain-stats');
+            const histEl = document.getElementById('tracker-captain-history');
+
+            statsEl.innerHTML = `
+                <div class="wr-stat"><span class="wr-stat-label">Hit Rate</span><span class="wr-stat-value" style="color:${c.hit_rate >= 50 ? 'var(--accent-green)' : 'var(--accent-red)'}">${c.hit_rate}%</span></div>
+                <div class="wr-stat"><span class="wr-stat-label">Correct</span><span class="wr-stat-value">${c.correct}/${c.total}</span></div>
+                <div class="wr-stat"><span class="wr-stat-label">Pts Left on Table</span><span class="wr-stat-value" style="color:var(--accent-red)">${c.points_left_on_table || 0}</span></div>
+            `;
+
+            if (!c.history || !c.history.length) { histEl.innerHTML = '<div class="empty-state">No captain data yet</div>'; return; }
+
+            let html = '<table class="data-table"><thead><tr><th>Rd</th><th>Captain</th><th>Score</th><th>Doubled</th><th>Best</th><th>Best Score</th><th></th></tr></thead><tbody>';
+            for (const r of c.history) {
+                const icon = r.was_correct ? '&#10003;' : '&#10005;';
+                const cls = r.was_correct ? '' : 'style="background:rgba(239,68,68,0.06)"';
+                html += `<tr ${cls}><td>R${r.round}</td><td><strong>${esc(r.picked || '-')}</strong></td><td>${r.picked_score || '-'}</td><td>${r.picked_doubled || '-'}</td>`;
+                html += `<td>${r.was_correct ? '-' : esc(r.optimal || '-')}</td><td>${r.was_correct ? '-' : r.optimal_score || '-'}</td><td>${icon}</td></tr>`;
+            }
+            html += '</tbody></table>';
+            histEl.innerHTML = html;
+        },
+
+        renderTrades(t) {
+            const statsEl = document.getElementById('tracker-trade-stats');
+            const ledgerEl = document.getElementById('tracker-trade-ledger');
+
+            statsEl.innerHTML = `
+                <div class="wr-stat"><span class="wr-stat-label">Wins</span><span class="wr-stat-value" style="color:var(--accent-green)">${t.won}</span></div>
+                <div class="wr-stat"><span class="wr-stat-label">Losses</span><span class="wr-stat-value" style="color:var(--accent-red)">${t.lost}</span></div>
+                <div class="wr-stat"><span class="wr-stat-label">Pending</span><span class="wr-stat-value" style="color:var(--text-muted)">${t.pending}</span></div>
+                <div class="wr-stat"><span class="wr-stat-label">Used</span><span class="wr-stat-value">${t.total}/30</span></div>
+            `;
+
+            if (!t.ledger || !t.ledger.length) { ledgerEl.innerHTML = '<div class="empty-state">No trades yet</div>'; return; }
+
+            const verdictMap = {win: '&#10003; Win', loss: '&#10005; Loss', even: '- Even', too_early: '... Pending'};
+            let html = '<table class="data-table"><thead><tr><th>Rd</th><th>Out</th><th>In</th><th class="right">Avg Since</th><th>Verdict</th></tr></thead><tbody>';
+            for (const tr of t.ledger) {
+                const vc = tr.verdict === 'win' ? 'color:var(--accent-green)' : tr.verdict === 'loss' ? 'color:var(--accent-red)' : '';
+                html += `<tr><td>R${tr.round}${tr.was_boost ? ' &#9889;' : ''}</td><td>${esc(tr.out_name)}</td><td><strong>${esc(tr.in_name)}</strong></td>`;
+                html += `<td class="right">${tr.games_since >= 2 ? `${tr.in_avg_since} vs ${tr.out_avg_since}` : '-'}</td>`;
+                html += `<td style="${vc}">${verdictMap[tr.verdict] || '?'}</td></tr>`;
+            }
+            html += '</tbody></table>';
+            ledgerEl.innerHTML = html;
+        },
+
+        renderRating(data) {
+            const el = document.getElementById('tracker-coach-rating');
+            if (!data.round_scores || !data.round_scores.length) { el.innerHTML = '<div class="empty-state">Rating appears after a few rounds</div>'; return; }
+
+            const capScore = (data.captain.hit_rate || 0) * 0.3;
+            const tradeScore = data.trades.total > 0 ? ((data.trades.won / Math.max(data.trades.won + data.trades.lost, 1)) * 100) * 0.3 : 50 * 0.3;
+            const scores = data.round_scores.map(r => r.score || 0);
+            const mean = scores.reduce((a, b) => a + b, 0) / scores.length;
+            const stdDev = Math.sqrt(scores.reduce((s, v) => s + Math.pow(v - mean, 2), 0) / scores.length);
+            const consistency = Math.max(0, Math.min(100, 100 - stdDev / 5)) * 0.2;
+            const fullField = data.round_scores.filter(r => (r.field_players || 0) >= 22).length;
+            const fieldRate = (fullField / data.round_scores.length * 100) * 0.2;
+            const total = Math.round(capScore + tradeScore + consistency + fieldRate);
+
+            const cls = total >= 80 ? 'var(--accent-green)' : total >= 60 ? 'var(--accent-blue)' : total >= 40 ? 'var(--accent-yellow)' : 'var(--accent-red)';
+            const label = total >= 80 ? 'Elite' : total >= 60 ? 'Strong' : total >= 40 ? 'Average' : 'Needs Work';
+
+            el.innerHTML = `
+                <div style="text-align:center;margin-bottom:20px">
+                    <div style="display:inline-flex;flex-direction:column;align-items:center;justify-content:center;width:100px;height:100px;border-radius:50%;border:4px solid ${cls}">
+                        <span style="font-size:32px;font-weight:800;color:${cls}">${total}</span>
+                        <span style="font-size:11px;color:var(--text-muted)">/100</span>
+                    </div>
+                    <div style="font-size:15px;font-weight:700;margin-top:6px;color:${cls}">${label}</div>
+                </div>
+                <div style="max-width:350px;margin:0 auto">
+                    <div class="tracker-rating-row"><span>Captain Picks</span><div class="tracker-rating-bar"><div style="width:${data.captain.hit_rate}%;background:${cls};height:100%;border-radius:3px"></div></div><span>${Math.round(data.captain.hit_rate)}%</span></div>
+                    <div class="tracker-rating-row"><span>Trade Success</span><div class="tracker-rating-bar"><div style="width:${data.trades.total > 0 ? (data.trades.won / Math.max(data.trades.won + data.trades.lost, 1)) * 100 : 50}%;background:${cls};height:100%;border-radius:3px"></div></div><span>${data.trades.won}W/${data.trades.lost}L</span></div>
+                    <div class="tracker-rating-row"><span>Consistency</span><div class="tracker-rating-bar"><div style="width:${consistency / 0.2}%;background:${cls};height:100%;border-radius:3px"></div></div><span>${Math.round(consistency / 0.2)}%</span></div>
+                    <div class="tracker-rating-row"><span>Field Coverage</span><div class="tracker-rating-bar"><div style="width:${fieldRate / 0.2}%;background:${cls};height:100%;border-radius:3px"></div></div><span>${Math.round(fieldRate / 0.2)}%</span></div>
+                </div>
+            `;
         },
     },
 };

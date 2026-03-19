@@ -321,6 +321,30 @@ class WeeklyBriefing(Base):
     generated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
+class SeasonResult(Base):
+    """Per-round team results: score, captain pick, optimal captain."""
+
+    __tablename__ = "season_results"
+    __table_args__ = (
+        UniqueConstraint("season", "round", name="uq_season_result"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    season: Mapped[int] = mapped_column(Integer, index=True)
+    round: Mapped[int] = mapped_column(Integer, index=True)
+    team_score: Mapped[Optional[int]] = mapped_column(Integer)
+    captain_id: Mapped[Optional[int]] = mapped_column(Integer)
+    captain_name: Mapped[Optional[str]] = mapped_column(String(100))
+    captain_score: Mapped[Optional[int]] = mapped_column(Integer)
+    captain_points: Mapped[Optional[int]] = mapped_column(Integer)
+    optimal_captain_id: Mapped[Optional[int]] = mapped_column(Integer)
+    optimal_captain_name: Mapped[Optional[str]] = mapped_column(String(100))
+    optimal_captain_score: Mapped[Optional[int]] = mapped_column(Integer)
+    captain_was_optimal: Mapped[bool] = mapped_column(Boolean, default=False)
+    field_players: Mapped[Optional[int]] = mapped_column(Integer)
+    trades_used: Mapped[Optional[int]] = mapped_column(Integer, default=0)
+
+
 class Ownership(Base):
     """Player ownership percentages and weekly swings."""
 

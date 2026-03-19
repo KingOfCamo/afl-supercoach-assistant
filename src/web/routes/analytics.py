@@ -376,3 +376,18 @@ def get_template_players(
         return {"template_players": templates}
     finally:
         session.close()
+
+
+@router.get("/season-tracker")
+def get_season_tracker(
+    user: dict = Depends(get_current_user),
+) -> dict:
+    """Get full season performance data: scores, captain, trades, rating."""
+    from src.analytics.season_tracker import get_season_tracker_data
+
+    config = get_config()
+    session = get_session()
+    try:
+        return get_season_tracker_data(session, user["user_id"], config.season)
+    finally:
+        session.close()

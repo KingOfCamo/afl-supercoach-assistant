@@ -3287,3 +3287,12 @@ select.input {
     .briefing-body { padding: 14px; font-size: 12px; }
     .briefing-header { flex-direction: column; gap: 6px; align-items: flex-start; }
 }
+
+
+/* --- Season Tracker --- */
+.tracker-chart-toggle { display: flex; gap: 4px; margin-bottom: 12px; }
+.tracker-captain-stats, .tracker-trade-stats { display: flex; gap: 16px; margin-bottom: 12px; }
+.tracker-rating-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 12px; }
+.tracker-rating-row span:first-child { width: 110px; color: var(--text-secondary); }
+.tracker-rating-row span:last-child { width: 50px; text-align: right; font-weight: 700; }
+.tracker-rating-bar { flex: 1; height: 6px; background: var(--bg-input); border-radius: 3px; overflow: hidden; }

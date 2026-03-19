@@ -38,6 +38,7 @@
                     <a class="nav-tab" data-section="byes" onclick="App.showSection('byes')">BYE PLANNER</a>
                     <a class="nav-tab" data-section="warroom" onclick="App.showSection('warroom')">TRADES</a>
                     <a class="nav-tab" data-section="ownership" onclick="App.showSection('ownership')">OWNERSHIP</a>
+                    <a class="nav-tab" data-section="tracker" onclick="App.showSection('tracker')">MY SEASON</a>
                 </nav>
             </div>
             <div class="top-nav-right">
@@ -429,6 +430,44 @@
                         <h3>Template Watch</h3>
                         <p style="font-size:12px;color:var(--text-secondary);margin-bottom:10px">Players owned by 30%+ of coaches. Safe picks but no rank advantage.</p>
                         <div id="own-template"><div class="empty-state">Sync to load ownership data</div></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION: Season Tracker -->
+            <div id="section-tracker" class="section">
+                <div class="section-inner">
+                    <h2 class="section-title">My Season — 2026</h2>
+                    <div class="warroom-status" id="tracker-summary">
+                        <div class="loading"><div class="spinner"></div><div>Loading season data...</div></div>
+                    </div>
+
+                    <div class="warroom-panel">
+                        <h3>Score Progression</h3>
+                        <div class="tracker-chart-toggle">
+                            <button class="btn btn-sm active" id="chart-btn-cumulative" onclick="App.Tracker.setChartMode('cumulative')">Cumulative</button>
+                            <button class="btn btn-sm" id="chart-btn-round" onclick="App.Tracker.setChartMode('round')">Per Round</button>
+                        </div>
+                        <canvas id="tracker-chart" height="260" style="width:100%"></canvas>
+                    </div>
+
+                    <div class="warroom-panel">
+                        <h3>Captain Scoreboard</h3>
+                        <div class="tracker-captain-stats" id="tracker-captain-stats"></div>
+                        <div id="tracker-captain-history"></div>
+                    </div>
+
+                    <div class="warroom-panel">
+                        <h3>Trade Ledger</h3>
+                        <div class="tracker-trade-stats" id="tracker-trade-stats"></div>
+                        <div id="tracker-trade-ledger"></div>
+                    </div>
+
+                    <div class="warroom-panel">
+                        <h3>AI Coach Rating</h3>
+                        <div id="tracker-coach-rating">
+                            <div class="empty-state">Rating will appear after a few rounds of data.</div>
+                        </div>
                     </div>
                 </div>
             </div>
