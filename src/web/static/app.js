@@ -171,6 +171,7 @@ const App = {
         if (name === 'warroom') this.WarRoom.loadAll();
         if (name === 'ownership') this.Ownership.loadAll();
         if (name === 'tracker') this.Tracker.loadAll();
+        if (name === 'cows') this.Cows.loadAll();
     },
 
     // --- Team Builder ---
@@ -2657,6 +2658,90 @@ const App = {
                     <div class="tracker-rating-row"><span>Field Coverage</span><div class="tracker-rating-bar"><div style="width:${fieldRate / 0.2}%;background:${cls};height:100%;border-radius:3px"></div></div><span>${Math.round(fieldRate / 0.2)}%</span></div>
                 </div>
             `;
+        },
+    },
+
+    // --- Cash Cow Tracker ---
+    Cows: {
+        async loadAll() {
+            try {
+                const res = await authFetch(`${API_BASE}/api/analytics/cash-cows`);
+                const data = await res.json();
+                this.renderSummary(data.my_cows);
+                this.renderMyCows(data.my_cows.players);
+                this.renderSellAlerts(data.sell_alerts);
+                this.renderBest(data.best_available);
+                this.renderLeaderboard(data.leaderboard);
+            } catch (e) { console.error('Cows load failed:', e); }
+        },
+
+        renderSummary(d) {
+            document.getElementById('cow-summary').innerHTML = `
+                <div class="wr-stat"><span class="wr-stat-label">Cash Generated</span><span class="wr-stat-value" style="color:var(--accent-green)">$${(d.total_cash_generated || 0).toLocaleString()}</span></div>
+                <div class="wr-stat"><span class="wr-stat-label">Active Cows</span><span class="wr-stat-value">${d.cow_count}</span></div>
+                <div class="wr-stat"><span class="wr-stat-label">Avg / Cow</span><span class="wr-stat-value">$${d.cow_count > 0 ? Math.round(d.total_cash_generated / d.cow_count).toLocaleString() : '0'}</span></div>
+            `;
+        },
+
+        renderMyCows(cows) {
+            const el = document.getElementById('cow-my-cows');
+            if (!cows || !cows.length) { el.innerHTML = '<div class="empty-state">No cash cows in team. Players under $350K will appear here.</div>'; return; }
+            let html = '<div class="cow-grid">';
+            for (const c of cows) {
+                const cls = c.cash_generated > 0 ? 'cow-profit' : c.cash_generated < 0 ? 'cow-loss' : '';
+                const peak = c.peak_estimate || {};
+                const badge = peak.near_peak ? '<span class="cow-peak-badge">NEAR PEAK</span>' : peak.rounds_until_peak ? `<span style="font-size:10px;color:var(--text-muted)">~${peak.rounds_until_peak}wk</span>` : '';
+                html += `<div class="cow-card ${cls}"><div class="cow-card-top"><div><div class="cow-name">${esc(c.name)}</div><div style="font-size:11px;color:var(--text-muted)">${esc(c.team)} · ${esc(c.position || '')} · ${esc(c.slot)}</div></div>${badge}</div>`;
+                html += `<div class="cow-fin"><div class="cow-fin-row"><span>Bought</span><span>$${(c.purchase_price || 0).toLocaleString()}</span></div>`;
+                html += `<div class="cow-fin-row"><span>Now</span><span>$${(c.current_price || 0).toLocaleString()}</span></div>`;
+                html += `<div class="cow-fin-row" style="border-top:1px solid var(--border);padding-top:4px;font-weight:700"><span>Cash</span><span style="color:${c.cash_generated >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'}">${c.cash_generated >= 0 ? '+' : ''}$${c.cash_generated.toLocaleString()}</span></div></div>`;
+                html += `<div style="font-size:11px;color:var(--text-secondary);display:flex;gap:8px;margin-top:6px"><span>Avg: ${c.avg_score}</span><span>BE: ${c.breakeven || '-'}</span><span>${c.games_played} gms</span>`;
+                if (c.scoring_above_be !== null) html += `<span style="color:${c.scoring_above_be >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'}">${c.scoring_above_be >= 0 ? '+' : ''}${c.scoring_above_be} vs BE</span>`;
+                html += '</div></div>';
+            }
+            html += '</div>';
+            el.innerHTML = html;
+        },
+
+        renderSellAlerts(alerts) {
+            const panel = document.getElementById('cow-sell-panel');
+            const el = document.getElementById('cow-sell-alerts');
+            if (!alerts || !alerts.length) { panel.style.display = 'none'; return; }
+            panel.style.display = '';
+            el.innerHTML = alerts.map(a =>
+                `<div class="cow-sell-alert"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><strong>${esc(a.name)}</strong><span>$${(a.current_price || 0).toLocaleString()}</span></div><div style="font-size:12px;color:var(--accent-orange)">${esc(a.alert_reason)}</div><div style="font-size:12px;margin-top:2px">Cash: <strong style="color:var(--accent-green)">+$${(a.cash_generated || 0).toLocaleString()}</strong></div></div>`
+            ).join('');
+        },
+
+        renderBest(cows) {
+            const el = document.getElementById('cow-best');
+            if (!cows || !cows.length) { el.innerHTML = '<div class="empty-state">No available cows. Data populates after Round 3.</div>'; return; }
+            let html = '<table class="data-table"><thead><tr><th>Player</th><th>Team</th><th>Pos</th><th class="right">Price</th><th class="right">Avg</th><th class="right">Proj Cash</th><th>Bye</th></tr></thead><tbody>';
+            for (const c of cows) {
+                html += `<tr><td><strong>${esc(c.name)}</strong></td><td class="muted">${esc(c.team)}</td><td class="muted">${esc(c.position || '-')}</td>`;
+                html += `<td class="right">$${(c.price || 0).toLocaleString()}</td><td class="right" style="font-weight:700">${c.avg_score}</td>`;
+                html += `<td class="right" style="color:var(--accent-green)">+$${(c.projected_cash || 0).toLocaleString()}</td>`;
+                html += `<td class="muted">${c.next_bye ? 'R' + c.next_bye : '-'}</td></tr>`;
+            }
+            html += '</tbody></table>';
+            el.innerHTML = html;
+        },
+
+        renderLeaderboard(lb) {
+            const el = document.getElementById('cow-leaderboard');
+            if (!lb || !lb.length) { el.innerHTML = '<div class="empty-state">Leaderboard populates after Round 3.</div>'; return; }
+            const medals = ['', '', ''];
+            let html = '<table class="data-table"><thead><tr><th>#</th><th>Player</th><th>Team</th><th class="right">Start</th><th class="right">Now</th><th class="right">Cash</th><th class="right">Avg</th></tr></thead><tbody>';
+            for (let i = 0; i < lb.length; i++) {
+                const c = lb[i];
+                const rank = i < 3 ? ['&#129351;','&#129352;','&#129353;'][i] : `${i + 1}`;
+                html += `<tr><td>${rank}</td><td><strong>${esc(c.name)}</strong></td><td class="muted">${esc(c.team)}</td>`;
+                html += `<td class="right muted">$${(c.start_price || 0).toLocaleString()}</td><td class="right">$${(c.current_price || 0).toLocaleString()}</td>`;
+                html += `<td class="right" style="color:var(--accent-green);font-weight:700">+$${(c.cash_generated || 0).toLocaleString()}</td>`;
+                html += `<td class="right">${c.avg_score || '-'}</td></tr>`;
+            }
+            html += '</tbody></table>';
+            el.innerHTML = html;
         },
     },
 

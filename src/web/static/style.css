@@ -3308,3 +3308,16 @@ select.input {
 .cmp-cell { text-align: center; padding: 6px 10px; }
 .cmp-best { font-weight: 700; color: var(--accent-green); background: rgba(34,197,94,0.06); }
 @media (max-width: 768px) { .cmp-search-row { flex-direction: column; } .cmp-vs { display: none; } }
+
+/* --- Cash Cow Tracker --- */
+.cow-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+.cow-card { border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
+.cow-card.cow-profit { border-left: 3px solid var(--accent-green); }
+.cow-card.cow-loss { border-left: 3px solid var(--accent-red); }
+.cow-card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+.cow-name { font-weight: 700; font-size: 14px; }
+.cow-peak-badge { background: rgba(245,158,11,0.15); color: var(--accent-orange); padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; }
+.cow-fin { background: var(--bg-card); border-radius: 6px; padding: 8px 10px; font-size: 12px; }
+.cow-fin-row { display: flex; justify-content: space-between; padding: 2px 0; }
+.cow-sell-alert { border: 1px solid var(--accent-orange); border-left: 3px solid var(--accent-orange); border-radius: 6px; padding: 10px 12px; margin-bottom: 8px; background: rgba(245,158,11,0.04); font-size: 13px; }
+@media (max-width: 768px) { .cow-grid { grid-template-columns: 1fr; } }

@@ -391,3 +391,26 @@ def get_season_tracker(
         return get_season_tracker_data(session, user["user_id"], config.season)
     finally:
         session.close()
+
+
+@router.get("/cash-cows")
+def get_cash_cows(
+    user: dict = Depends(get_current_user),
+) -> dict:
+    """Cash cow tracker: my cows, best available, sell alerts, leaderboard."""
+    from src.analytics.cash_cows import get_cash_cow_data
+    from src.analytics.byes import detect_current_round
+
+    config = get_config()
+    session = get_session()
+    try:
+        r = config.current_round
+        try:
+            detected = detect_current_round(session, config.season)
+            if detected > 0:
+                r = detected
+        except Exception:
+            pass
+        return get_cash_cow_data(session, user["user_id"], config.season, r)
+    finally:
+        session.close()

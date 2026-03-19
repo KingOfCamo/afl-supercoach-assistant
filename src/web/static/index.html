@@ -40,6 +40,7 @@
                     <a class="nav-tab" data-section="ownership" onclick="App.showSection('ownership')">OWNERSHIP</a>
                     <a class="nav-tab" data-section="tracker" onclick="App.showSection('tracker')">MY SEASON</a>
                     <a class="nav-tab" data-section="compare" onclick="App.showSection('compare')">COMPARE</a>
+                    <a class="nav-tab" data-section="cows" onclick="App.showSection('cows')">CASH COWS</a>
                 </nav>
             </div>
             <div class="top-nav-right">
@@ -493,6 +494,20 @@
                         <h3>AI Verdict</h3>
                         <div id="cmp-verdict-content"></div>
                     </div>
+                </div>
+            </div>
+
+            <!-- SECTION: Cash Cow Tracker -->
+            <div id="section-cows" class="section">
+                <div class="section-inner">
+                    <h2 class="section-title">Cash Cow Tracker</h2>
+                    <div class="warroom-status" id="cow-summary">
+                        <div class="loading"><div class="spinner"></div><div>Loading...</div></div>
+                    </div>
+                    <div class="warroom-panel"><h3>My Cash Cows</h3><div id="cow-my-cows"><div class="empty-state">Loading...</div></div></div>
+                    <div class="warroom-panel" id="cow-sell-panel" style="display:none"><h3>Sell Alerts</h3><div id="cow-sell-alerts"></div></div>
+                    <div class="warroom-panel"><h3>Best Available Cows</h3><p style="font-size:11px;color:var(--text-muted);margin-bottom:8px">Cheapies not in your team with highest projected cash generation</p><div id="cow-best"></div></div>
+                    <div class="warroom-panel"><h3>Cash Cow Leaderboard</h3><div id="cow-leaderboard"></div></div>
                 </div>
             </div>
 
