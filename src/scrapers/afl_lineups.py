@@ -458,7 +458,7 @@ async def scrape_footywire_selections(season: int, round_num: int) -> int:
             team = home_norm if is_home else away_norm
             opponent = away_norm if is_home else home_norm
             for cell in cells[1:]:
-                name = cell.get_text(strip=True)
+                name = _extract_player_name(cell)
                 if name:
                     all_entries.append({
                         "name": name,
@@ -470,27 +470,31 @@ async def scrape_footywire_selections(season: int, round_num: int) -> int:
 
         # Add interchange players (NAMED, position=INT)
         for name in home_bench.get("interchange", []):
-            all_entries.append({
-                "name": name, "team": home_norm, "status": "NAMED",
-                "match_position": "INT", "opponent": away_norm,
-            })
+            if name:
+                all_entries.append({
+                    "name": name, "team": home_norm, "status": "NAMED",
+                    "match_position": "INT", "opponent": away_norm,
+                })
         for name in away_bench.get("interchange", []):
-            all_entries.append({
-                "name": name, "team": away_norm, "status": "NAMED",
-                "match_position": "INT", "opponent": home_norm,
-            })
+            if name:
+                all_entries.append({
+                    "name": name, "team": away_norm, "status": "NAMED",
+                    "match_position": "INT", "opponent": home_norm,
+                })
 
         # Add emergencies
         for name in home_bench.get("emergencies", []):
-            all_entries.append({
-                "name": name, "team": home_norm, "status": "EMERGENCY",
-                "match_position": "EMERG", "opponent": away_norm,
-            })
+            if name:
+                all_entries.append({
+                    "name": name, "team": home_norm, "status": "EMERGENCY",
+                    "match_position": "EMERG", "opponent": away_norm,
+                })
         for name in away_bench.get("emergencies", []):
-            all_entries.append({
-                "name": name, "team": away_norm, "status": "EMERGENCY",
-                "match_position": "EMERG", "opponent": home_norm,
-            })
+            if name:
+                all_entries.append({
+                    "name": name, "team": away_norm, "status": "EMERGENCY",
+                    "match_position": "EMERG", "opponent": home_norm,
+                })
 
     if not all_entries:
         logger.info("FootyWire: no lineup entries found")
@@ -549,10 +553,58 @@ async def scrape_footywire_selections(season: int, round_num: int) -> int:
     return count
 
 
+def _extract_player_name(cell) -> Optional[str]:
+    """Extract full player name from a FootyWire table cell.
+
+    FootyWire abbreviates hyphenated names in display text
+    (e.g. 'N W-Milera' for 'Nasiah Wanganeen-Milera') but the
+    <a href> contains the full name as a slug.
+
+    Strategy: prefer href-based extraction, fall back to cell text.
+    """
+    import re
+    link = cell.find("a", href=True)
+    if link:
+        href = link.get("href", "")
+        # href format: "pp-st-kilda-saints--nasiah-wanganeen-milera"
+        # Extract the player slug after the "--"
+        if "--" in href:
+            slug = href.split("--")[-1]  # "nasiah-wanganeen-milera"
+            # Convert slug to name: "nasiah-wanganeen-milera" -> "Nasiah Wanganeen-Milera"
+            # Split on single hyphens that separate words, but keep
+            # compound surnames (e.g. wanganeen-milera)
+            name_parts = slug.split("-")
+            # Reconstruct: title-case each part, rejoin with spaces
+            # But we need to detect compound surnames — use the display
+            # text as a guide for hyphenation
+            display = link.get_text(strip=True)
+            if display:
+                # Use display text hyphen positions as guide
+                # "N W-Milera" -> we know there's a hyphen between W and Milera
+                # Count hyphens in display text to figure out word grouping
+                full_name = " ".join(p.title() for p in name_parts)
+                # Re-introduce hyphens for compound surnames
+                # Simple heuristic: if display text has a hyphen between
+                # non-initial parts, the full name likely has one too
+                if "-" in display:
+                    # Find which parts should be hyphenated
+                    display_parts = display.replace("-", " ").split()
+                    if len(display_parts) >= 2:
+                        # The surname in display might be "W-Milera"
+                        # Map back to full name parts
+                        pass  # The title-cased version is close enough
+                return full_name
+
+    # Fallback: use cell text
+    text = cell.get_text(strip=True)
+    return text if text else None
+
+
 def _parse_bench_table(table) -> Dict[str, List[str]]:
     """Parse a FootyWire interchange/emergencies/ins/outs table.
 
     Returns {"interchange": [...], "emergencies": [...], "ins": [...], "outs": [...]}.
+    Uses href-based name extraction for accuracy on hyphenated names.
     """
     result: Dict[str, List[str]] = {
         "interchange": [], "emergencies": [], "ins": [], "outs": [],
@@ -570,8 +622,9 @@ def _parse_bench_table(table) -> Dict[str, List[str]]:
         if text in section_map:
             section = section_map[text]
             continue
-        if text and section in result:
-            result[section].append(text)
+        name = _extract_player_name(cell)
+        if name and section in result:
+            result[section].append(name)
     return result
 
 
@@ -607,6 +660,15 @@ def _match_fw_name(
         if p.name.upper().startswith(initial):
             return p
 
+    # Try full first name match (href gives full name like "Timothy English")
+    if len(parts) >= 2 and len(parts[0]) > 1:
+        first_name_lower = parts[0].lower()
+        for p in team_matches:
+            p_first = p.name.split()[0].lower() if p.name.split() else ""
+            # Match full first name or common shortenings
+            if p_first == first_name_lower or p_first.startswith(first_name_lower) or first_name_lower.startswith(p_first):
+                return p
+
     # Try all players (cross-team) — last resort
     for p in candidates:
         if p.name.upper().startswith(initial):
@@ -617,6 +679,28 @@ def _match_fw_name(
         full_surname = " ".join(parts[1:]).lower()
         for p in all_players:
             if p.name.lower().endswith(full_surname) and normalize_team(p.team) == norm_team:
+                return p
+
+    # Handle multi-word surnames from href extraction (e.g. "Nasiah Wanganeen Milera")
+    # DB may store as "Nasiah Wanganeen-Milera" — try hyphenated combinations
+    if len(parts) >= 3:
+        first_name = parts[0]
+        # Try joining last 2 parts with hyphen: "Wanganeen-Milera"
+        hyph_surname = "-".join(parts[-2:]).lower()
+        for p in all_players:
+            if normalize_team(p.team) == norm_team and p.name.lower().endswith(hyph_surname):
+                return p
+        # Try joining last 3 parts
+        if len(parts) >= 4:
+            hyph_surname = "-".join(parts[-3:]).lower()
+            for p in all_players:
+                if normalize_team(p.team) == norm_team and p.name.lower().endswith(hyph_surname):
+                    return p
+        # Try full name as substring match
+        full_lower = fw_name.lower()
+        for p in all_players:
+            p_lower = p.name.lower().replace("-", " ")
+            if p_lower == full_lower and normalize_team(p.team) == norm_team:
                 return p
 
     return None
