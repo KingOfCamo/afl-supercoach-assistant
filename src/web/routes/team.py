@@ -43,15 +43,19 @@ class CaptainRequest(BaseModel):
     vice_captain_id: Optional[int] = None
 
 
-class EmergencyRequest(BaseModel):
-    """Set 4 bench emergencies in priority order.
+class EmergencyEntry(BaseModel):
+    player_id: int
+    emergency_position: str  # DEF, MID, RUC, FWD
 
-    Each entry is a player_id. Order matters: index 0 = E1 (highest priority).
-    SuperCoach rules: exactly 4 emergencies from bench, one per position line
-    (DEF, MID, RUC, FWD). When an on-field player DNPs, the highest-priority
-    emergency matching that position auto-subs in.
+
+class EmergencyRequest(BaseModel):
+    """Set bench emergencies with position assignments.
+
+    SuperCoach 2026 rules: max 4 emergencies, max 2 per position line,
+    bench players only, FLEX has no emergency. Highest-scoring emergency
+    in matching position activates when a field player doesn't play.
     """
-    emergencies: List[int]  # list of player_ids in priority order (max 4)
+    emergencies: List[EmergencyEntry]
 
 
 class SwapRequest(BaseModel):
@@ -77,6 +81,41 @@ def _player_fits_slot(player_position: str, slot_position: str) -> bool:
         return False
     player_positions = [p.strip().upper() for p in player_position.split("/")]
     return slot_position in player_positions
+
+
+def _clear_emergency_if_on_field(session, slot: "MyTeamSlot") -> bool:
+    """Clear emergency status if player is now in a field slot (not BENCH).
+
+    Must be called AFTER any swap/move that changes position_slot.
+    """
+    if slot.is_emergency and not slot.position_slot.startswith("BENCH"):
+        slot.is_emergency = False
+        slot.emergency_order = None
+        slot.emergency_position = None
+        return True
+    return False
+
+
+def _enforce_emergency_integrity(session, user_id: int) -> int:
+    """Bulk cleanup: clear emergency on any non-bench player."""
+    slots = (
+        session.execute(
+            select(MyTeamSlot).where(
+                MyTeamSlot.user_id == user_id,
+                MyTeamSlot.is_emergency == True,
+            )
+        )
+        .scalars()
+        .all()
+    )
+    cleared = 0
+    for s in slots:
+        if not s.position_slot.startswith("BENCH"):
+            s.is_emergency = False
+            s.emergency_order = None
+            s.emergency_position = None
+            cleared += 1
+    return cleared
 
 
 @router.get("")
@@ -188,6 +227,7 @@ def get_team(user: dict = Depends(get_current_user)) -> dict:
                 "is_vice_captain": slot.is_vice_captain,
                 "is_emergency": slot.is_emergency,
                 "emergency_order": slot.emergency_order,
+                "emergency_position": slot.emergency_position,
                 "salary": salary,
                 "sc_avg": round(dfs.sc_avg, 1) if dfs and dfs.sc_avg else None,
                 "last_score": latest.score if latest else None,
@@ -341,22 +381,32 @@ def set_captain(request: CaptainRequest, user: dict = Depends(get_current_user))
 def set_emergencies(
     request: EmergencyRequest, user: dict = Depends(get_current_user)
 ) -> dict:
-    """Set bench emergencies in priority order.
+    """Set bench emergencies with position assignments.
 
-    SuperCoach rules:
-    - Max 4 emergencies from bench players
-    - Each covers their position line (DEF, MID, RUC, FWD)
-    - Priority: E1 > E2 > E3 > E4
-    - When an on-field player DNPs, highest-priority emergency
-      matching that position auto-subs in with their score.
+    SuperCoach 2026 rules: max 4, max 2 per position line, bench only,
+    no FLEX. Highest-scoring emergency activates when field player DNPs.
     """
     user_id = user["user_id"]
-    if len(request.emergencies) > 4:
+    proposed = request.emergencies
+
+    if len(proposed) > 4:
         raise HTTPException(status_code=400, detail="Maximum 4 emergencies allowed")
+
+    # Validate max 2 per position line
+    from collections import Counter
+    pos_counts = Counter(e.emergency_position for e in proposed)
+    for pos, count in pos_counts.items():
+        if count > 2:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Maximum 2 emergencies for {pos}, got {count}",
+            )
+    if any(e.emergency_position == "FLEX" for e in proposed):
+        raise HTTPException(status_code=400, detail="FLEX cannot have emergencies")
 
     session = get_session()
     try:
-        # Clear existing emergencies for this user
+        # Clear existing emergencies
         all_slots = (
             session.execute(
                 select(MyTeamSlot).where(MyTeamSlot.user_id == user_id)
@@ -367,30 +417,41 @@ def set_emergencies(
         for s in all_slots:
             s.is_emergency = False
             s.emergency_order = None
+            s.emergency_position = None
 
         # Set new emergencies
-        for i, player_id in enumerate(request.emergencies):
+        for i, entry in enumerate(proposed):
             slot = session.execute(
                 select(MyTeamSlot).where(
                     MyTeamSlot.user_id == user_id,
-                    MyTeamSlot.player_id == player_id,
+                    MyTeamSlot.player_id == entry.player_id,
                 )
             ).scalar_one_or_none()
             if not slot:
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Player {player_id} is not on your team",
+                    detail=f"Player {entry.player_id} is not on your team",
                 )
             if not slot.position_slot.startswith("BENCH"):
                 raise HTTPException(
                     status_code=400,
-                    detail="Emergencies must be bench players",
+                    detail=f"Emergencies must be bench players",
                 )
+            # Validate position eligibility
+            player = session.get(Player, entry.player_id)
+            if player and player.position:
+                player_positions = [p.strip().upper() for p in player.position.split("/")]
+                if entry.emergency_position not in player_positions:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"{player.name} ({player.position}) cannot be {entry.emergency_position} emergency",
+                    )
             slot.is_emergency = True
-            slot.emergency_order = i + 1  # 1-based
+            slot.emergency_order = i + 1
+            slot.emergency_position = entry.emergency_position
 
         session.commit()
-        return {"success": True, "count": len(request.emergencies)}
+        return {"success": True, "count": len(proposed)}
     except HTTPException:
         raise
     except Exception as e:
@@ -530,12 +591,17 @@ def swap_players(request: SwapRequest, user: dict = Depends(get_current_user)) -
 
         # Execute swap
         slot_a.position_slot, slot_b.position_slot = request.slot_b, request.slot_a
+
+        # Clear emergency status if player moved to field
+        a_cleared = _clear_emergency_if_on_field(session, slot_a)
+        b_cleared = _clear_emergency_if_on_field(session, slot_b)
         session.commit()
 
         return {
             "status": "ok",
             "slot_a": {"player_name": player_a.name, "new_slot": request.slot_b},
             "slot_b": {"player_name": player_b.name, "new_slot": request.slot_a},
+            "emergency_cleared": a_cleared or b_cleared,
         }
     except HTTPException:
         raise
@@ -574,5 +640,133 @@ def get_optimised_lineup(
     try:
         result = optimise_lineup(session, user["user_id"], config.season, target_round)
         return result
+    finally:
+        session.close()
+
+
+@router.get("/emergency/suggest")
+def suggest_emergencies(
+    round_num: int = None,
+    user: dict = Depends(get_current_user),
+) -> dict:
+    """Suggest optimal emergency nominations for a round.
+
+    Prioritises covering positions with at-risk field players (bye/injured),
+    then fills remaining slots with highest projected bench players.
+    """
+    from src.analytics.projections import project_player
+    from src.analytics.byes import get_bye_teams, detect_current_round
+    from src.utils.config import get_config
+    from src.utils.teams import normalize_team
+
+    config = get_config()
+    session = get_session()
+    try:
+        target_round = round_num or config.current_round
+        try:
+            detected = detect_current_round(session, config.season)
+            if detected > 0 and round_num is None:
+                target_round = detected
+        except Exception:
+            pass
+
+        bye_teams = get_bye_teams(session, config.season, target_round)
+
+        # Get all team slots
+        slots = (
+            session.execute(
+                select(MyTeamSlot, Player)
+                .join(Player, MyTeamSlot.player_id == Player.id)
+                .where(MyTeamSlot.user_id == user["user_id"])
+            )
+            .all()
+        )
+
+        # Find at-risk field players by position
+        at_risk: dict[str, list] = {"DEF": [], "MID": [], "RUC": [], "FWD": []}
+        for slot, player in slots:
+            if slot.position_slot.startswith("BENCH") or slot.position_slot.startswith("FLEX"):
+                continue
+            pos = _get_slot_position(slot.position_slot)
+            if pos not in at_risk:
+                continue
+            reason = None
+            if normalize_team(player.team) in bye_teams or player.team in bye_teams:
+                reason = "BYE"
+            else:
+                inj = session.execute(
+                    select(Injury).where(Injury.player_id == player.id)
+                ).scalar_one_or_none()
+                if inj and inj.status in ("OUT", "DOUBTFUL"):
+                    reason = inj.status
+            if reason:
+                at_risk[pos].append({"player_name": player.name, "slot": slot.position_slot, "reason": reason})
+
+        # Get bench players with projections (exclude those on bye)
+        bench_candidates = []
+        for slot, player in slots:
+            if not slot.position_slot.startswith("BENCH"):
+                continue
+            is_bye = normalize_team(player.team) in bye_teams or player.team in bye_teams
+            if is_bye:
+                continue
+            proj = project_player(player.id, target_round, season=config.season)
+            proj_score = proj.projected_score if proj else 0.0
+            positions = [p.strip().upper() for p in (player.position or "").split("/") if p.strip()]
+            bench_candidates.append({
+                "player_id": player.id,
+                "player_name": player.name,
+                "positions": positions,
+                "projected": round(proj_score, 1),
+            })
+        bench_candidates.sort(key=lambda x: x["projected"], reverse=True)
+
+        # Greedy suggest: cover at-risk positions first, then fill with best remaining
+        suggestions = []
+        used_ids = set()
+        pos_counts = {"DEF": 0, "MID": 0, "RUC": 0, "FWD": 0}
+
+        # Pass 1: cover at-risk positions
+        for pos in ("DEF", "MID", "RUC", "FWD"):
+            if not at_risk[pos]:
+                continue
+            needed = min(len(at_risk[pos]), 2)
+            for cand in bench_candidates:
+                if len(suggestions) >= 4 or pos_counts[pos] >= needed:
+                    break
+                if cand["player_id"] in used_ids:
+                    continue
+                if pos not in cand["positions"]:
+                    continue
+                suggestions.append({
+                    "player_id": cand["player_id"],
+                    "player_name": cand["player_name"],
+                    "emergency_position": pos,
+                    "projected": cand["projected"],
+                    "covers": at_risk[pos],
+                })
+                used_ids.add(cand["player_id"])
+                pos_counts[pos] += 1
+
+        # Pass 2: fill remaining with highest projected
+        for cand in bench_candidates:
+            if len(suggestions) >= 4:
+                break
+            if cand["player_id"] in used_ids:
+                continue
+            for pos in cand["positions"]:
+                if pos in pos_counts and pos_counts[pos] < 2:
+                    suggestions.append({
+                        "player_id": cand["player_id"],
+                        "player_name": cand["player_name"],
+                        "emergency_position": pos,
+                        "projected": cand["projected"],
+                        "covers": at_risk.get(pos, []),
+                    })
+                    used_ids.add(cand["player_id"])
+                    pos_counts[pos] += 1
+                    break
+
+        return {"round": target_round, "suggestions": suggestions}
     finally:
         session.close()

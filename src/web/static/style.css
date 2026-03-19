@@ -2506,41 +2506,122 @@ select.input {
     margin: 0 4px;
 }
 
-.emergency-picker-group {
-    gap: 6px !important;
+/* Emergency Panel — Position Grid */
+.emergency-panel-wrapper {
+    padding: 0 4px;
 }
-
-.emergency-slots {
+.emergency-panel-header {
     display: flex;
-    gap: 4px;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
 }
-
-.emg-slot {
-    display: inline-block;
-    padding: 3px 8px;
-    background: var(--bg-input);
-    border: 1px solid var(--border);
-    border-radius: 4px;
+.btn-suggest {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: white;
+    border: none;
+    padding: 4px 10px;
+    border-radius: 5px;
     font-size: 10px;
-    font-weight: 600;
+    font-weight: 700;
+    cursor: pointer;
+}
+.btn-suggest:hover { filter: brightness(1.1); }
+.emergency-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+}
+.emg-col-header {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--accent-cyan);
+    margin-bottom: 4px;
+}
+.emg-slot-card {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 8px;
+    margin-bottom: 4px;
+    min-height: 36px;
+    font-size: 11px;
+}
+.emg-slot-card.filled {
+    background: rgba(245, 158, 11, 0.08);
+    border-left: 2px solid var(--accent-orange);
+}
+.emg-slot-card.empty {
+    border-style: dashed;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.emg-slot-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.emg-slot-name {
+    font-weight: 700;
+    color: var(--text-primary);
+    font-size: 11px;
+}
+.emg-remove {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 12px;
+    padding: 0 2px;
+}
+.emg-remove:hover { color: var(--accent-red); }
+.emg-slot-pos {
+    font-size: 9px;
     color: var(--text-secondary);
-    white-space: nowrap;
 }
-
-.emg-slot.filled {
-    background: rgba(34, 197, 94, 0.1);
-    border-color: rgba(34, 197, 94, 0.3);
-    color: var(--accent-green);
+.emg-add {
+    background: none;
+    border: 1px dashed var(--border);
+    color: var(--text-muted);
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 10px;
+    width: 100%;
 }
-
-.emg-slot.selecting {
-    border-color: var(--accent-green);
-    animation: pulse-border-green 1.5s ease-in-out infinite;
+.emg-add:hover {
+    border-color: var(--accent-cyan);
+    color: var(--accent-cyan);
 }
-
-@keyframes pulse-border-green {
-    0%, 100% { border-color: var(--accent-green); }
-    50% { border-color: var(--border); }
+.emg-picker {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: var(--shadow-lg);
+    z-index: 1000;
+    min-width: 180px;
+    overflow: hidden;
+}
+.emg-picker-header {
+    padding: 8px 12px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent-cyan);
+    border-bottom: 1px solid var(--border);
+}
+.emg-picker-item {
+    padding: 6px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    color: var(--text-primary);
+}
+.emg-picker-item:hover { background: var(--bg-hover); }
+.emg-picker-item small { color: var(--text-muted); }
+.emg-picker-cancel { color: var(--text-muted); font-style: italic; }
+@media (max-width: 768px) {
+    .emergency-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
 /* Clickable bench cards in emergency mode */

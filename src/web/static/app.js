@@ -1215,185 +1215,158 @@ const App = {
         },
 
         // --- Emergency selection ---
-        toggleEmergencyMode() {
-            this._emergencyMode = !this._emergencyMode;
-            const btn = document.getElementById('emg-edit-btn');
-            const hint = document.getElementById('captain-hint');
+        // --- Emergency Panel (position-based grid) ---
 
-            if (this._emergencyMode) {
-                // Exit captain mode if active
-                this._captainMode = null;
-                document.getElementById('captain-btn').classList.remove('selecting');
-                document.getElementById('vc-btn').classList.remove('selecting');
+        renderEmergencyPanel() {
+            const grid = document.getElementById('emergency-grid');
+            const countEl = document.getElementById('emg-count');
+            if (!grid || !this._lastTeamData) return;
 
-                // Load current emergencies
-                this._emergencyPicks = [];
-                if (this._lastTeamData) {
-                    const emgSlots = this._lastTeamData.slots
-                        .filter(s => s.is_emergency && s.emergency_order)
-                        .sort((a, b) => a.emergency_order - b.emergency_order);
-                    this._emergencyPicks = emgSlots.map(s => s.player_id);
+            const slots = this._lastTeamData.slots;
+            const emergencies = slots.filter(s => s.is_emergency).sort((a, b) => (a.emergency_order || 0) - (b.emergency_order || 0));
+            if (countEl) countEl.textContent = emergencies.length;
+
+            const positions = ['DEF', 'MID', 'RUC', 'FWD'];
+            let html = '';
+
+            for (const pos of positions) {
+                const posEmgs = emergencies.filter(s => s.emergency_position === pos || (!s.emergency_position && (s.position || '').split('/')[0].toUpperCase() === pos));
+                html += `<div class="emg-col">`;
+                html += `<div class="emg-col-header">${pos}</div>`;
+
+                for (let i = 0; i < 2; i++) {
+                    const emg = posEmgs[i];
+                    if (emg) {
+                        const name = emg.player_name.split(' ').pop();
+                        html += `<div class="emg-slot-card filled">`;
+                        html += `<div class="emg-slot-top">`;
+                        html += `<span class="emg-slot-name">${this._esc(name)}</span>`;
+                        html += `<button class="emg-remove" onclick="App.Team.removeEmergency(${emg.player_id})">&#10005;</button>`;
+                        html += `</div>`;
+                        html += `<div class="emg-slot-pos">${this._esc(emg.position || pos)}</div>`;
+                        html += `</div>`;
+                    } else {
+                        html += `<div class="emg-slot-card empty">`;
+                        html += `<button class="emg-add" onclick="App.Team.showEmergencyPicker('${pos}')">+ ${pos}</button>`;
+                        html += `</div>`;
+                    }
                 }
-
-                btn.textContent = 'Done';
-                btn.style.background = 'var(--accent-green)';
-                btn.style.color = 'white';
-                btn.style.borderColor = 'var(--accent-green)';
-                hint.textContent = 'Click bench players to set E1-E4 (click again to remove)';
-                hint.style.display = '';
-                this._updateEmergencySlotDisplay();
-            } else {
-                // Save emergencies
-                this._saveEmergencies();
-                btn.textContent = 'Edit';
-                btn.style.background = '';
-                btn.style.color = '';
-                btn.style.borderColor = '';
-                hint.style.display = 'none';
+                html += `</div>`;
             }
 
-            // Re-render bench cards with selectable state
-            if (this._lastTeamData) this.renderTeam(this._lastTeamData);
+            grid.innerHTML = html;
         },
 
-        handleBenchEmergencyClick(playerId) {
-            if (!this._emergencyMode) return;
-
-            const idx = this._emergencyPicks.indexOf(playerId);
-            if (idx !== -1) {
-                // Remove this pick
-                this._emergencyPicks.splice(idx, 1);
-            } else if (this._emergencyPicks.length < 4) {
-                // Check position coverage — SuperCoach requires one per line
-                const player = this._lastTeamData.slots.find(s => s.player_id === playerId);
-                if (!player) return;
-
-                const playerPos = (player.position || '').split('/')[0].toUpperCase();
-                const existingPositions = this._emergencyPicks.map(pid => {
-                    const s = this._lastTeamData.slots.find(sl => sl.player_id === pid);
-                    return s ? (s.position || '').split('/')[0].toUpperCase() : '';
-                });
-
-                // SuperCoach 2026: max 2 emergencies per position line
-                const posCount = existingPositions.filter(p => p === playerPos).length;
-                if (posCount >= 2) {
-                    alert(`Maximum 2 emergencies per position line. You already have ${posCount} for ${playerPos}.`);
-                    return;
-                }
-
-                this._emergencyPicks.push(playerId);
-            } else {
-                alert('Maximum 4 emergencies. Remove one first.');
-                return;
-            }
-
-            this._updateEmergencySlotDisplay();
-            if (this._lastTeamData) this.renderTeam(this._lastTeamData);
+        async removeEmergency(playerId) {
+            const slots = this._lastTeamData?.slots || [];
+            const current = slots
+                .filter(s => s.is_emergency && s.player_id !== playerId)
+                .map(s => ({player_id: s.player_id, emergency_position: s.emergency_position || (s.position || '').split('/')[0].toUpperCase()}));
+            await this._saveEmergenciesNew(current);
         },
 
-        _updateEmergencySlotDisplay() {
-            for (let i = 1; i <= 4; i++) {
-                const el = document.getElementById(`emg-slot-${i}`);
-                if (!el) continue;
+        showEmergencyPicker(position) {
+            if (!this._lastTeamData) return;
+            const slots = this._lastTeamData.slots;
+            const emergencies = slots.filter(s => s.is_emergency);
+            const posCount = emergencies.filter(s => (s.emergency_position || '') === position).length;
 
-                if (i <= this._emergencyPicks.length) {
-                    const pid = this._emergencyPicks[i - 1];
-                    const slot = this._lastTeamData
-                        ? this._lastTeamData.slots.find(s => s.player_id === pid)
-                        : null;
-                    const name = slot ? slot.player_name.split(' ').pop() : `#${pid}`;
-                    const pos = slot ? (slot.position || '').split('/')[0] : '';
-                    el.textContent = `E${i}: ${name} (${pos})`;
-                    el.className = 'emg-slot filled';
-                } else {
-                    el.textContent = `E${i}: -`;
-                    el.className = this._emergencyMode ? 'emg-slot selecting' : 'emg-slot';
-                }
-            }
+            if (emergencies.length >= 4) { this._showToast('Maximum 4 emergencies', 'error'); return; }
+            if (posCount >= 2) { this._showToast(`Already 2 ${position} emergencies`, 'error'); return; }
+
+            // Find eligible bench players
+            const bench = slots.filter(s => s.position_slot.startsWith('BENCH') && !s.is_emergency && !s.is_on_bye);
+            const eligible = bench.filter(s => {
+                const positions = (s.position || '').split('/').map(p => p.trim().toUpperCase());
+                return positions.includes(position);
+            });
+
+            if (!eligible.length) { this._showToast(`No eligible ${position} bench players`, 'error'); return; }
+
+            // Build picker dropdown
+            const grid = document.getElementById('emergency-grid');
+            const rect = grid.getBoundingClientRect();
+            let picker = document.getElementById('emg-picker');
+            if (picker) picker.remove();
+
+            picker = document.createElement('div');
+            picker.id = 'emg-picker';
+            picker.className = 'emg-picker';
+            picker.innerHTML = `<div class="emg-picker-header">Select ${position} Emergency</div>` +
+                eligible.map(s => {
+                    const name = this._abbreviateName(s.player_name);
+                    return `<div class="emg-picker-item" onclick="App.Team.addEmergency(${s.player_id}, '${position}')">${this._esc(name)} <small>(${this._esc(s.position || '')})</small></div>`;
+                }).join('') +
+                `<div class="emg-picker-item emg-picker-cancel" onclick="document.getElementById('emg-picker').remove()">Cancel</div>`;
+            document.body.appendChild(picker);
+
+            // Position near the grid
+            picker.style.position = 'fixed';
+            picker.style.top = `${Math.min(rect.bottom + 4, window.innerHeight - 200)}px`;
+            picker.style.left = `${rect.left}px`;
         },
 
-        async _saveEmergencies() {
-            if (!this._emergencyPicks.length && !this._lastTeamData?.slots.some(s => s.is_emergency)) {
-                return; // Nothing to save
-            }
+        async addEmergency(playerId, position) {
+            const picker = document.getElementById('emg-picker');
+            if (picker) picker.remove();
+
+            const slots = this._lastTeamData?.slots || [];
+            const current = slots
+                .filter(s => s.is_emergency)
+                .map(s => ({player_id: s.player_id, emergency_position: s.emergency_position || (s.position || '').split('/')[0].toUpperCase()}));
+            current.push({player_id: playerId, emergency_position: position});
+            await this._saveEmergenciesNew(current);
+        },
+
+        async _saveEmergenciesNew(emergencies) {
             try {
-                await authFetch(`${API_BASE}/api/team/emergency`, {
+                const res = await authFetch(`${API_BASE}/api/team/emergency`, {
                     method: 'PUT',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({emergencies: this._emergencyPicks}),
+                    body: JSON.stringify({emergencies}),
                 });
-                this.loadTeam();
+                const data = await res.json();
+                if (!res.ok) {
+                    this._showToast(data.detail || 'Error saving emergencies', 'error');
+                    return;
+                }
+                await this.loadTeam();
             } catch (e) {
-                alert('Error saving emergencies: ' + e.message);
+                this._showToast('Error: ' + e.message, 'error');
+            }
+        },
+
+        async autoSuggestEmergencies() {
+            const round = App.state.config ? App.state.config.current_round : 1;
+            try {
+                const res = await authFetch(`${API_BASE}/api/team/emergency/suggest?round_num=${round}`);
+                const data = await res.json();
+                if (!data.suggestions || !data.suggestions.length) {
+                    this._showToast('No suggestions available', 'error');
+                    return;
+                }
+                const entries = data.suggestions.map(s => ({
+                    player_id: s.player_id,
+                    emergency_position: s.emergency_position,
+                }));
+                await this._saveEmergenciesNew(entries);
+                this._showToast(`Set ${entries.length} suggested emergencies`, 'success');
+            } catch (e) {
+                this._showToast('Error: ' + e.message, 'error');
             }
         },
 
         async quickAddEmergency(playerId) {
             this.closeCardMenu();
-            // Get current emergencies
-            const emgSlots = (this._lastTeamData?.slots || [])
-                .filter(s => s.is_emergency && s.emergency_order)
-                .sort((a, b) => a.emergency_order - b.emergency_order);
-            const picks = emgSlots.map(s => s.player_id);
-
-            if (picks.length >= 4) {
-                alert('Already have 4 emergencies. Remove one first.');
-                return;
-            }
-            picks.push(playerId);
-
-            try {
-                await authFetch(`${API_BASE}/api/team/emergency`, {
-                    method: 'PUT',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({emergencies: picks}),
-                });
-                this.loadTeam();
-            } catch (e) {
-                alert('Error: ' + e.message);
-            }
+            const slot = this._lastTeamData?.slots.find(s => s.player_id === playerId);
+            if (!slot) return;
+            const pos = (slot.position || '').split('/')[0].toUpperCase();
+            await this.addEmergency(playerId, pos);
         },
 
         async quickRemoveEmergency(playerId) {
             this.closeCardMenu();
-            const emgSlots = (this._lastTeamData?.slots || [])
-                .filter(s => s.is_emergency && s.emergency_order)
-                .sort((a, b) => a.emergency_order - b.emergency_order);
-            const picks = emgSlots.map(s => s.player_id).filter(id => id !== playerId);
-
-            try {
-                await authFetch(`${API_BASE}/api/team/emergency`, {
-                    method: 'PUT',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({emergencies: picks}),
-                });
-                this.loadTeam();
-            } catch (e) {
-                alert('Error: ' + e.message);
-            }
-        },
-
-        _updateEmergencyPickerFromData(data) {
-            // Update emergency slot display from team data
-            const emgSlots = data.slots
-                .filter(s => s.is_emergency && s.emergency_order)
-                .sort((a, b) => a.emergency_order - b.emergency_order);
-
-            for (let i = 1; i <= 4; i++) {
-                const el = document.getElementById(`emg-slot-${i}`);
-                if (!el) continue;
-
-                if (i <= emgSlots.length) {
-                    const s = emgSlots[i - 1];
-                    const name = s.player_name.split(' ').pop();
-                    const pos = (s.position || '').split('/')[0];
-                    el.textContent = `E${i}: ${name} (${pos})`;
-                    el.className = 'emg-slot filled';
-                } else {
-                    el.textContent = `E${i}: -`;
-                    el.className = 'emg-slot';
-                }
-            }
+            await this.removeEmergency(playerId);
         },
 
         async clearTeam() {
@@ -1530,9 +1503,7 @@ const App = {
             this._renderListView(data);
             this._renderFieldView(data);
             this._updateCaptainPicker(data);
-            if (!this._emergencyMode) {
-                this._updateEmergencyPickerFromData(data);
-            }
+            this.renderEmergencyPanel();
         },
 
         _renderListView(data) {

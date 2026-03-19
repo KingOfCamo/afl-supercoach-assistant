@@ -51,6 +51,23 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning("Could not auto-derive bye rounds on startup: %s", e)
 
+    # Clean up corrupted emergency data (field players with emergency flag)
+    try:
+        from src.web.routes.team import _enforce_emergency_integrity
+        from src.models.database import get_session as _gs2, User
+        _s2 = _gs2()
+        try:
+            users = _s2.execute(select(User)).scalars().all()
+            for u in users:
+                cleared = _enforce_emergency_integrity(_s2, u.id)
+                if cleared:
+                    logger.info("Cleared %d invalid emergencies for user %d", cleared, u.id)
+            _s2.commit()
+        finally:
+            _s2.close()
+    except Exception as e:
+        logger.warning("Could not enforce emergency integrity on startup: %s", e)
+
     # Start the data sync scheduler
     from src.sync.scheduler import get_scheduler
     from src.sync.tasks import (

@@ -149,6 +149,7 @@ class MyTeamSlot(Base):
     is_vice_captain: Mapped[bool] = mapped_column(Boolean, default=False)
     is_emergency: Mapped[bool] = mapped_column(Boolean, default=False)
     emergency_order: Mapped[Optional[int]] = mapped_column(Integer)  # 1-4 priority
+    emergency_position: Mapped[Optional[str]] = mapped_column(String(10))  # DEF/MID/RUC/FWD
     added_round: Mapped[Optional[int]] = mapped_column(Integer)
     added_price: Mapped[Optional[int]] = mapped_column(Integer)
 
@@ -400,6 +401,11 @@ def init_db():
             with engine.begin() as conn:
                 conn.execute(text(
                     "ALTER TABLE my_team ADD COLUMN emergency_order INTEGER"
+                ))
+        if "emergency_position" not in cols:
+            with engine.begin() as conn:
+                conn.execute(text(
+                    "ALTER TABLE my_team ADD COLUMN emergency_position VARCHAR(10)"
                 ))
 
 
