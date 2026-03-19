@@ -3321,3 +3321,51 @@ select.input {
 .cow-fin-row { display: flex; justify-content: space-between; padding: 2px 0; }
 .cow-sell-alert { border: 1px solid var(--accent-orange); border-left: 3px solid var(--accent-orange); border-radius: 6px; padding: 10px 12px; margin-bottom: 8px; background: rgba(245,158,11,0.04); font-size: 13px; }
 @media (max-width: 768px) { .cow-grid { grid-template-columns: 1fr; } }
+
+/* --- UI Overhaul: Grouped Nav + Home + Help --- */
+.nav-help-tab { font-weight: 800; font-size: 14px; min-width: 32px; text-align: center; }
+
+/* Sub-navigation */
+.sub-nav { display: flex; gap: 4px; padding: 8px 12px; border-bottom: 1px solid var(--border); background: var(--bg-secondary); }
+.sub-nav-btn { padding: 5px 12px; border: 1px solid var(--border); background: none; border-radius: 5px; font-size: 12px; cursor: pointer; color: var(--text-secondary); font-weight: 600; }
+.sub-nav-btn.active { background: var(--accent-cyan); color: white; border-color: var(--accent-cyan); }
+.sub-nav-btn:hover:not(.active) { background: var(--bg-hover); }
+.sub-section { padding: 0; }
+.sub-section.active { display: block; }
+
+/* Home Screen */
+.home-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.home-round { font-size: 13px; color: var(--text-muted); font-weight: 600; }
+.home-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 12px; }
+.home-card h3 { font-size: 14px; font-weight: 700; margin: 0 0 10px; color: var(--text-primary); }
+.home-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.home-card-header h3 { margin: 0; }
+.home-quick-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.home-action-btn { padding: 8px 14px; border: 1px solid var(--border); background: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; color: var(--text-primary); }
+.home-action-btn:hover { background: var(--bg-hover); border-color: var(--accent-cyan); color: var(--accent-cyan); }
+
+/* Help Panel */
+.help-panel { position: fixed; top: 0; right: 0; width: 320px; height: 100vh; background: var(--bg-secondary); border-left: 1px solid var(--border); box-shadow: -4px 0 16px rgba(0,0,0,0.1); z-index: 200; overflow-y: auto; padding: 16px; }
+.help-panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.help-panel-header h3 { margin: 0; font-size: 16px; }
+.help-close { background: none; border: none; font-size: 18px; cursor: pointer; color: var(--text-muted); }
+.help-close:hover { color: var(--accent-red); }
+.help-section { margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+.help-section h4 { font-size: 13px; font-weight: 700; margin: 0 0 8px; color: var(--accent-cyan); }
+.help-guide-btn { display: block; width: 100%; text-align: left; padding: 7px 10px; border: 1px solid var(--border); background: none; border-radius: 5px; font-size: 12px; cursor: pointer; margin-bottom: 3px; color: var(--text-primary); }
+.help-guide-btn:hover { background: var(--bg-hover); border-color: var(--accent-cyan); }
+
+/* Onboarding */
+.onboarding-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+.onboarding-card { background: var(--bg-secondary); border-radius: 12px; padding: 28px; max-width: 420px; width: 90%; box-shadow: var(--shadow-lg); text-align: center; }
+.onboarding-card h2 { font-size: 20px; margin-bottom: 8px; }
+.onboarding-card p { font-size: 13px; color: var(--text-secondary); margin-bottom: 16px; line-height: 1.6; }
+.onboarding-btn { width: 100%; padding: 10px; background: var(--gradient-blue); color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; margin-bottom: 6px; }
+.onboarding-btn:hover { filter: brightness(1.1); }
+.onboarding-btn-skip { width: 100%; padding: 8px; background: none; border: 1px solid var(--border); border-radius: 8px; font-size: 12px; cursor: pointer; color: var(--text-muted); }
+
+@media (max-width: 768px) {
+    .help-panel { width: 100%; }
+    .home-quick-actions { flex-direction: column; }
+    .sub-nav { overflow-x: auto; white-space: nowrap; }
+}

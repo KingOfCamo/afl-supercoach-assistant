@@ -31,16 +31,11 @@
             <div class="top-nav-left">
                 <span class="top-nav-brand">SuperCoach AI</span>
                 <nav class="top-nav-links">
-                    <a class="nav-tab" data-section="briefing" onclick="App.showSection('briefing')">BRIEFING</a>
-                    <a class="nav-tab active" data-section="team" onclick="App.showSection('team')">MY TEAM</a>
-                    <a class="nav-tab" data-section="dashboard" onclick="App.showSection('dashboard')">DASHBOARD</a>
-                    <a class="nav-tab" data-section="ai" onclick="App.showSection('ai')">AI INSIGHTS</a>
-                    <a class="nav-tab" data-section="byes" onclick="App.showSection('byes')">BYE PLANNER</a>
-                    <a class="nav-tab" data-section="warroom" onclick="App.showSection('warroom')">TRADES</a>
-                    <a class="nav-tab" data-section="ownership" onclick="App.showSection('ownership')">OWNERSHIP</a>
-                    <a class="nav-tab" data-section="tracker" onclick="App.showSection('tracker')">MY SEASON</a>
-                    <a class="nav-tab" data-section="compare" onclick="App.showSection('compare')">COMPARE</a>
-                    <a class="nav-tab" data-section="cows" onclick="App.showSection('cows')">CASH COWS</a>
+                    <a class="nav-tab active" data-section="home" onclick="App.showSection('home')">HOME</a>
+                    <a class="nav-tab" data-section="team" onclick="App.showSection('team')">MY TEAM</a>
+                    <a class="nav-tab" data-section="trades" onclick="App.showSection('trades')">TRADES</a>
+                    <a class="nav-tab" data-section="insights" onclick="App.showSection('insights')">INSIGHTS</a>
+                    <a class="nav-tab nav-help-tab" onclick="App.toggleHelp()">?</a>
                 </nav>
             </div>
             <div class="top-nav-right">
@@ -62,7 +57,47 @@
                 <button class="bye-alert-dismiss" onclick="document.getElementById('bye-alert-banner').style.display='none'">&times;</button>
             </div>
 
-            <!-- SECTION: Weekly Briefing -->
+            <!-- SECTION: Home -->
+            <div id="section-home" class="section active">
+                <div class="section-inner" style="max-width:800px">
+                    <div class="home-header">
+                        <h2 class="section-title">Home</h2>
+                        <span class="home-round" id="home-round">Round -</span>
+                    </div>
+
+                    <!-- Briefing Summary -->
+                    <div class="home-card" id="home-briefing">
+                        <div class="home-card-header">
+                            <h3>Weekly Briefing</h3>
+                            <button class="btn btn-sm" onclick="App.showSection('briefing')">Read Full Briefing</button>
+                        </div>
+                        <div id="home-briefing-summary" class="home-briefing-summary">
+                            <div class="empty-state">Generate your briefing to see a summary here</div>
+                        </div>
+                    </div>
+
+                    <!-- Quick Actions -->
+                    <div class="home-card">
+                        <h3>Quick Actions</h3>
+                        <div class="home-quick-actions">
+                            <button class="home-action-btn" onclick="App.showSection('warroom')">Trade War Room</button>
+                            <button class="home-action-btn" onclick="App.showSection('team')">Manage My Team</button>
+                            <button class="home-action-btn" onclick="App.Team.syncAndRefreshScores()">Sync Data</button>
+                            <button class="home-action-btn" onclick="App.showSection('cows')">Cash Cows</button>
+                        </div>
+                    </div>
+
+                    <!-- Round at a Glance -->
+                    <div class="home-card">
+                        <h3>This Round</h3>
+                        <div id="home-round-glance" class="home-round-glance">
+                            <div class="empty-state">Sync to load round data</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION: Weekly Briefing (full, shown via sub-nav or direct link) -->
             <div id="section-briefing" class="section">
                 <div class="section-inner" style="max-width:800px">
                     <div class="briefing-header">
@@ -76,6 +111,32 @@
                         <div class="loading"><div class="spinner"></div><div>Loading briefing...</div></div>
                     </div>
                 </div>
+            </div>
+
+            <!-- SECTION: Trades (grouped: sub-tabs for warroom, cows, compare) -->
+            <div id="section-trades" class="section">
+                <div class="sub-nav">
+                    <button class="sub-nav-btn active" data-sub="warroom" onclick="App.showSubSection('trades', 'warroom')">War Room</button>
+                    <button class="sub-nav-btn" data-sub="cows" onclick="App.showSubSection('trades', 'cows')">Cash Cows</button>
+                    <button class="sub-nav-btn" data-sub="compare" onclick="App.showSubSection('trades', 'compare')">Compare</button>
+                </div>
+                <div id="trades-sub-warroom" class="sub-section active"></div>
+                <div id="trades-sub-cows" class="sub-section" style="display:none"></div>
+                <div id="trades-sub-compare" class="sub-section" style="display:none"></div>
+            </div>
+
+            <!-- SECTION: Insights (grouped: sub-tabs for dashboard, tracker, ownership, byes) -->
+            <div id="section-insights" class="section">
+                <div class="sub-nav">
+                    <button class="sub-nav-btn active" data-sub="dashboard" onclick="App.showSubSection('insights', 'dashboard')">Dashboard</button>
+                    <button class="sub-nav-btn" data-sub="tracker" onclick="App.showSubSection('insights', 'tracker')">My Season</button>
+                    <button class="sub-nav-btn" data-sub="ownership" onclick="App.showSubSection('insights', 'ownership')">Ownership</button>
+                    <button class="sub-nav-btn" data-sub="byes" onclick="App.showSubSection('insights', 'byes')">Bye Planner</button>
+                </div>
+                <div id="insights-sub-dashboard" class="sub-section active"></div>
+                <div id="insights-sub-tracker" class="sub-section" style="display:none"></div>
+                <div id="insights-sub-ownership" class="sub-section" style="display:none"></div>
+                <div id="insights-sub-byes" class="sub-section" style="display:none"></div>
             </div>
 
             <!-- SECTION: Team Builder -->
@@ -525,6 +586,28 @@
             <div class="optimise-swaps" id="optimise-swaps"></div>
             <div class="optimise-actions" id="optimise-actions"></div>
         </div>
+    </div>
+
+    <!-- Help Panel -->
+    <div id="help-panel" class="help-panel" style="display:none">
+        <div class="help-panel-header">
+            <h3>Help</h3>
+            <button onclick="App.toggleHelp()" class="help-close">&times;</button>
+        </div>
+        <div id="help-context" class="help-section"></div>
+        <div class="help-section">
+            <h4>How-To Guides</h4>
+            <div class="help-guide-list" id="help-guides"></div>
+        </div>
+        <div class="help-section">
+            <h4>Glossary</h4>
+            <div id="help-glossary"></div>
+        </div>
+    </div>
+
+    <!-- Onboarding Wizard -->
+    <div id="onboarding-wizard" class="onboarding-overlay" style="display:none">
+        <div class="onboarding-card" id="onboarding-content"></div>
     </div>
 
     <script src="/static/app.js"></script>

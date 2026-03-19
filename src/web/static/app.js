@@ -136,6 +136,7 @@ const App = {
             // Load team + live scores on first successful connection
             if (!this._initialLoad) {
                 this._initialLoad = true;
+                this.Home.load();
                 this.Team.loadTeam();
                 this.Team.loadLiveScores();
                 this.Team.loadFixtures();
@@ -153,18 +154,32 @@ const App = {
     showSection(name) {
         if (!this.state.connected) return;
 
-        // Update nav
+        // Map sub-sections to parent groups
+        const subToParent = {
+            warroom: 'trades', cows: 'trades', compare: 'trades',
+            dashboard: 'insights', tracker: 'insights', ownership: 'insights', byes: 'insights',
+        };
+        const parentSection = subToParent[name] || name;
+
+        // Update nav tabs
         document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
-        const tab = document.querySelector(`.nav-tab[data-section="${name}"]`);
+        const tab = document.querySelector(`.nav-tab[data-section="${parentSection}"]`);
         if (tab) tab.classList.add('active');
 
         // Update sections
         document.querySelectorAll('.section').forEach(el => el.classList.remove('active'));
-        document.getElementById(`section-${name}`).classList.add('active');
+        const sectionEl = document.getElementById(`section-${parentSection}`) || document.getElementById(`section-${name}`);
+        if (sectionEl) sectionEl.classList.add('active');
+
+        // If showing a sub-section, activate it within the parent
+        if (subToParent[name]) {
+            this.showSubSection(parentSection, name);
+        }
 
         this.state.currentSection = name;
 
         // Load data when switching sections
+        if (name === 'home') this.Home.load();
         if (name === 'briefing') this.Briefing.load();
         if (name === 'dashboard') this.Dashboard.loadAll();
         if (name === 'byes') this.Byes.loadAll();
@@ -172,6 +187,165 @@ const App = {
         if (name === 'ownership') this.Ownership.loadAll();
         if (name === 'tracker') this.Tracker.loadAll();
         if (name === 'cows') this.Cows.loadAll();
+
+        // Update help context
+        this._updateHelpContext(name);
+    },
+
+    showSubSection(parent, sub) {
+        // Update sub-nav buttons
+        const parentEl = document.getElementById(`section-${parent}`);
+        if (!parentEl) return;
+        parentEl.querySelectorAll('.sub-nav-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.sub === sub);
+        });
+        // Show/hide sub-sections
+        parentEl.querySelectorAll('.sub-section').forEach(el => {
+            el.style.display = 'none';
+            el.classList.remove('active');
+        });
+        const subEl = document.getElementById(`${parent}-sub-${sub}`);
+        if (subEl) {
+            subEl.style.display = '';
+            subEl.classList.add('active');
+        }
+
+        // Move content from standalone sections into sub-section containers if needed
+        this._moveSubContent(parent, sub);
+
+        // Load data
+        const loaders = {warroom: 'WarRoom', cows: 'Cows', compare: null, dashboard: 'Dashboard', tracker: 'Tracker', ownership: 'Ownership', byes: 'Byes'};
+        if (loaders[sub] && this[loaders[sub]]) this[loaders[sub]].loadAll ? this[loaders[sub]].loadAll() : null;
+    },
+
+    _moveSubContent(parent, sub) {
+        // One-time: move content from standalone section into grouped sub-section container
+        const subContainer = document.getElementById(`${parent}-sub-${sub}`);
+        if (!subContainer || subContainer.children.length > 0) return; // Already has content
+        const sourceSection = document.getElementById(`section-${sub}`);
+        if (sourceSection) {
+            // Move all children from the standalone section into the sub container
+            while (sourceSection.firstChild) {
+                subContainer.appendChild(sourceSection.firstChild);
+            }
+        }
+    },
+
+    toggleHelp() {
+        const panel = document.getElementById('help-panel');
+        panel.style.display = panel.style.display === 'none' ? '' : 'none';
+        if (panel.style.display !== 'none') {
+            this._updateHelpContext(this.state.currentSection);
+            this._renderHelpGuides();
+            this._renderGlossary();
+        }
+    },
+
+    _helpContext: {
+        home: {title: 'Home', desc: 'Your round-at-a-glance dashboard with briefing, alerts, and quick actions.', tips: ['Briefing auto-generates Thursday evening', 'Quick Actions for common tasks', 'Shows projected score and bye impact']},
+        team: {title: 'My Team', desc: 'Manage your starting 22 and bench. Swap players, set emergencies.', tips: ['Click Optimise for AI-arranged best lineup', 'Click any card to start a swap', 'BYE badge shows players on bye this round', 'Set 4 emergencies (max 2 per position line)']},
+        warroom: {title: 'Trade War Room', desc: 'AI trade advisor. Scans for problems and recommends trades.', tips: ['Analyse My Team for AI recommendations', 'Problems auto-detected: injuries, underperformers, byes', 'Chat box for specific trade questions']},
+        cows: {title: 'Cash Cows', desc: 'Track cheap players generating cash through price rises.', tips: ['Sell alerts when cows approach peak', 'Best Available shows cheapies not in your team', 'Prices update after Round 3']},
+        compare: {title: 'Compare', desc: 'Side-by-side player comparison with AI verdict.', tips: ['Search 2 players to auto-compare', 'Green = better value in each row', 'AI verdict picks a winner']},
+        tracker: {title: 'My Season', desc: 'Season performance tracking with score chart and coach rating.', tips: ['Toggle cumulative/per-round chart', 'Captain scoreboard shows hits vs misses', 'AI Coach Rating scores your decisions']},
+        ownership: {title: 'Ownership', desc: 'Community ownership data. Find PODs, spot template traps.', tips: ['PODs (<10% owned) are your edge', 'Template (>30%) safe but no rank gain', 'POD Finder filters by avg and position']},
+    },
+
+    _updateHelpContext(section) {
+        const ctx = this._helpContext[section];
+        const el = document.getElementById('help-context');
+        if (!el || !ctx) return;
+        el.innerHTML = `<h4>${ctx.title}</h4><p style="font-size:12px;color:var(--text-secondary);margin-bottom:8px">${ctx.desc}</p>` +
+            ctx.tips.map(t => `<div style="font-size:12px;color:var(--text-secondary);padding:2px 0">- ${t}</div>`).join('');
+    },
+
+    _helpGuides: {
+        'import-team': {title: 'Import your team', steps: ['Log into supercoach.heraldsun.com.au', 'Go to My Team, copy player list or export CSV', 'In this dashboard: My Team > Import CSV', 'Press Import, then Sync']},
+        'make-trade': {title: 'Make a trade', steps: ['Go to Trades > War Room', 'Click Analyse My Team', 'Review AI recommendations', 'Execute or ask follow-up questions in chat']},
+        'set-captain': {title: 'Choose captain', steps: ['Check Weekly Briefing for AI captain pick', 'Go to My Team', 'Click the C badge on your chosen player', 'Set VC as backup']},
+        'set-emergencies': {title: 'Set emergencies', steps: ['Go to My Team emergency panel', 'Click + Add in any position slot', 'Select eligible bench player', 'Or click Auto-Suggest for AI picks']},
+        'swap-players': {title: 'Swap players', steps: ['Go to My Team', 'Click Optimise for AI lineup, or click any card to start manual swap', 'Click a valid target to complete the swap', 'Players moved to field lose emergency status']},
+        'bye-strategy': {title: 'Navigate byes', steps: ['BYE badges show on affected player cards', 'Bye impact bar shows playing/bye count', 'Bye Planner (Insights > Bye Planner) shows full matrix', 'Set emergencies to cover bye players']},
+    },
+
+    _renderHelpGuides() {
+        const el = document.getElementById('help-guides');
+        if (!el) return;
+        el.innerHTML = Object.entries(this._helpGuides).map(([key, guide]) =>
+            `<button class="help-guide-btn" onclick="App._showGuide('${key}')">${guide.title}</button>`
+        ).join('');
+    },
+
+    _showGuide(key) {
+        const guide = this._helpGuides[key];
+        if (!guide) return;
+        const el = document.getElementById('help-context');
+        el.innerHTML = `<button style="background:none;border:none;color:var(--accent-cyan);cursor:pointer;font-size:12px;margin-bottom:8px" onclick="App._updateHelpContext(App.state.currentSection)">Back</button>` +
+            `<h4>${guide.title}</h4>` +
+            guide.steps.map((s, i) => `<div style="display:flex;gap:8px;margin-bottom:6px;font-size:12px"><span style="background:var(--accent-cyan);color:white;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0">${i + 1}</span><span>${s}</span></div>`).join('');
+    },
+
+    _glossary: [
+        {t: 'Breakeven (BE)', d: 'Score needed to maintain current price. Above = price rises, below = drops.'},
+        {t: 'Cash Cow', d: 'Cheap player ($102-350K) selected to generate cash through price rises.'},
+        {t: 'CBA%', d: 'Centre Bounce Attendance %. Predicts midfield scoring.'},
+        {t: 'DPP', d: 'Dual Position Player. Eligible for two positions (e.g. MID/FWD).'},
+        {t: 'DVP', d: 'Difficulty vs Position. Points conceded by a team to each position.'},
+        {t: 'Emergency', d: 'Bench player who replaces a field player that doesn\'t play.'},
+        {t: 'FLEX', d: 'Field slot accepting any position. No emergency for FLEX.'},
+        {t: 'POD', d: 'Point of Difference. Low-ownership player (<10%) giving ranking edge.'},
+        {t: 'Template', d: 'Highly-owned player (>30%). Safe but doesn\'t separate you.'},
+        {t: 'TOG%', d: 'Time on Ground %. More time = more scoring opportunity.'},
+        {t: 'Trade Boost', d: '5 per season. Each adds 1 extra trade to a round.'},
+    ],
+
+    _renderGlossary() {
+        const el = document.getElementById('help-glossary');
+        if (!el) return;
+        el.innerHTML = this._glossary.map(g =>
+            `<div style="padding:4px 0;border-bottom:1px solid var(--border)"><strong style="font-size:12px">${g.t}</strong><div style="font-size:11px;color:var(--text-secondary)">${g.d}</div></div>`
+        ).join('');
+    },
+
+    // --- Home Screen ---
+    Home: {
+        async load() {
+            const round = App.state.config ? App.state.config.current_round : 1;
+            document.getElementById('home-round').textContent = `Round ${round}, 2026`;
+
+            // Load briefing summary
+            try {
+                const res = await authFetch(`${API_BASE}/api/ai/weekly-briefing?round_num=${round}`);
+                const data = await res.json();
+                const el = document.getElementById('home-briefing-summary');
+                if (data.exists) {
+                    // Show first ~200 chars as summary
+                    const preview = data.briefing.substring(0, 300).replace(/[#*]/g, '').trim();
+                    el.innerHTML = `<p style="font-size:13px;color:var(--text-secondary);line-height:1.6">${esc(preview)}...</p>`;
+                } else {
+                    el.innerHTML = `<button class="btn btn-primary" onclick="App.Briefing.generate(false);App.showSection('briefing')" style="font-size:13px">Generate Briefing</button>`;
+                }
+            } catch (e) { /* silent */ }
+
+            // Round glance
+            try {
+                const teamRes = await authFetch(`${API_BASE}/api/team`);
+                const team = await teamRes.json();
+                const el = document.getElementById('home-round-glance');
+                const byeCount = team.slots ? team.slots.filter(s => s.is_on_bye && !s.position_slot.startsWith('BENCH')).length : 0;
+                const fieldCount = team.slots ? team.slots.filter(s => !s.position_slot.startsWith('BENCH')).length : 0;
+                const playing = fieldCount - byeCount;
+                const config = App.state.config || {};
+                el.innerHTML = `
+                    <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:13px">
+                        <span><strong>${playing}/${fieldCount}</strong> playing</span>
+                        <span>${byeCount > 0 ? `<strong style="color:#475569">${byeCount} on BYE</strong>` : 'No byes'}</span>
+                        <span>Trades: <strong>${config.trades_remaining || '-'}</strong> left</span>
+                        <span>Players: <strong>${team.player_count || 0}</strong>/30</span>
+                    </div>
+                `;
+            } catch (e) { /* silent */ }
+        },
     },
 
     // --- Team Builder ---
