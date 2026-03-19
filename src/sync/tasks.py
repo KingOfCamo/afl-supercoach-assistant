@@ -240,13 +240,16 @@ async def sync_afl_lineups() -> None:
 
         print(f"[LINEUP] trying FootyWire...", flush=True)
         count = await scrape_footywire_selections(config.season, round_num)
+        print(f"[LINEUP] FootyWire returned {count} entries", flush=True)
         if count > 0:
             record_success(source, count)
-            logger.info("sync_afl_lineups (footywire): %d entries", count)
+            print(f"[LINEUP] SUCCESS: {count} lineup entries for round {round_num}", flush=True)
             return
-        logger.info("FootyWire returned 0 entries, trying AFL API...")
+        print("[LINEUP] FootyWire returned 0, trying AFL API...", flush=True)
     except Exception as e:
-        logger.warning("FootyWire lineup scrape failed: %s — trying AFL API", e)
+        print(f"[LINEUP] FootyWire FAILED: {e}", flush=True)
+        import traceback
+        traceback.print_exc()
 
     # Source 2: AFL.com.au API (may fail due to auth/JS)
     try:
@@ -259,10 +262,10 @@ async def sync_afl_lineups() -> None:
             await scraper.close()
 
         record_success(source, count)
-        logger.info("sync_afl_lineups (afl api): %d entries", count)
+        print(f"[LINEUP] AFL API: {count} entries", flush=True)
     except Exception as e:
         record_error(source, str(e))
-        logger.error("sync_afl_lineups failed (both sources): %s", e)
+        print(f"[LINEUP] BOTH SOURCES FAILED: {e}", flush=True)
 
 
 # ── AFL News Injuries ──
