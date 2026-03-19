@@ -168,6 +168,7 @@ const App = {
         if (name === 'dashboard') this.Dashboard.loadAll();
         if (name === 'byes') this.Byes.loadAll();
         if (name === 'warroom') this.WarRoom.loadAll();
+        if (name === 'ownership') this.Ownership.loadAll();
     },
 
     // --- Team Builder ---
@@ -2324,6 +2325,92 @@ const App = {
             }
             html += '</tbody></table>';
             container.innerHTML = html;
+        },
+    },
+
+    // --- Ownership Intelligence ---
+    Ownership: {
+        async loadAll() {
+            const round = App.state.config ? App.state.config.current_round : 1;
+            await Promise.allSettled([
+                this.loadMovers(round),
+                this.loadTemplate(),
+            ]);
+        },
+
+        async loadMovers(round) {
+            try {
+                const res = await authFetch(`${API_BASE}/api/analytics/ownership/movers?round=${round}`);
+                const data = await res.json();
+                this.renderMovers(data);
+            } catch (e) { console.error('Movers failed:', e); }
+        },
+
+        renderMovers(data) {
+            const inEl = document.getElementById('own-movers-in');
+            const outEl = document.getElementById('own-movers-out');
+            if (data.gainers && data.gainers.length) {
+                inEl.innerHTML = data.gainers.map(g =>
+                    `<div class="own-mover-row own-mover-up"><span>${esc(g.player_name)}</span><span class="own-mover-chg">+${g.ownership_change.toFixed(1)}%</span></div>`
+                ).join('');
+            } else {
+                inEl.innerHTML = '<div class="empty-state">No data yet</div>';
+            }
+            if (data.losers && data.losers.length) {
+                outEl.innerHTML = data.losers.map(l =>
+                    `<div class="own-mover-row own-mover-down"><span>${esc(l.player_name)}</span><span class="own-mover-chg">${l.ownership_change.toFixed(1)}%</span></div>`
+                ).join('');
+            } else {
+                outEl.innerHTML = '<div class="empty-state">No data yet</div>';
+            }
+        },
+
+        async loadTemplate() {
+            try {
+                const res = await authFetch(`${API_BASE}/api/analytics/ownership/template`);
+                const data = await res.json();
+                const el = document.getElementById('own-template');
+                if (data.template_players && data.template_players.length) {
+                    el.innerHTML = data.template_players.map(p =>
+                        `<div class="own-template-row">
+                            <span class="own-template-name">${esc(p.player_name)} <small style="color:var(--text-muted)">(${esc(p.team)}, ${esc(p.position || '')})</small></span>
+                            <span class="own-template-pct">${p.ownership_pct.toFixed(0)}%</span>
+                            <div class="own-template-bar"><div class="own-template-fill" style="width:${Math.min(p.ownership_pct, 100)}%"></div></div>
+                        </div>`
+                    ).join('');
+                } else {
+                    el.innerHTML = '<div class="empty-state">No ownership data available yet</div>';
+                }
+            } catch (e) { console.error('Template failed:', e); }
+        },
+
+        async findPODs() {
+            const minAvg = document.getElementById('pod-min-avg').value;
+            const maxOwn = document.getElementById('pod-max-own').value;
+            const position = document.getElementById('pod-position').value;
+            const container = document.getElementById('own-pod-results');
+            container.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+
+            try {
+                const res = await authFetch(
+                    `${API_BASE}/api/analytics/ownership/pods?min_avg=${minAvg}&max_ownership=${maxOwn}&position=${position}`
+                );
+                const data = await res.json();
+                if (!data.pods || !data.pods.length) {
+                    container.innerHTML = '<div class="empty-state">No PODs found. Try relaxing the filters.</div>';
+                    return;
+                }
+                let html = '<table class="data-table"><thead><tr><th>Player</th><th>Team</th><th>Pos</th><th class="right">Avg</th><th class="right">Own%</th></tr></thead><tbody>';
+                for (const p of data.pods) {
+                    html += `<tr><td>${esc(p.player_name)}</td><td class="muted">${esc(p.team)}</td><td class="muted">${esc(p.position || '-')}</td>`;
+                    html += `<td class="right" style="font-weight:700">${p.avg_score.toFixed(0)}</td>`;
+                    html += `<td class="right">${p.ownership_pct ? p.ownership_pct.toFixed(0) + '%' : '<5%'}</td></tr>`;
+                }
+                html += '</tbody></table>';
+                container.innerHTML = html;
+            } catch (e) {
+                container.innerHTML = `<div class="empty-state" style="color:var(--accent-red)">Error: ${e.message}</div>`;
+            }
         },
     },
 };

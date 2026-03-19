@@ -3183,3 +3183,60 @@ select.input {
     .wr-stat { flex: 1 1 45%; }
     .wr-chat-msg { max-width: 95%; }
 }
+
+/* --- Ownership Intelligence --- */
+.own-movers {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+.own-mover-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 10px;
+    border-radius: 5px;
+    margin-bottom: 3px;
+    font-size: 13px;
+}
+.own-mover-up { background: rgba(34,197,94,0.08); }
+.own-mover-down { background: rgba(239,68,68,0.08); }
+.own-mover-chg { font-weight: 700; }
+.own-mover-up .own-mover-chg { color: var(--accent-green); }
+.own-mover-down .own-mover-chg { color: var(--accent-red); }
+
+.own-pod-filters {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+    font-size: 12px;
+}
+.own-pod-filters label { font-weight: 600; color: var(--text-secondary); }
+
+.own-template-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+}
+.own-template-name { flex: 1; font-weight: 600; color: var(--text-primary); }
+.own-template-pct { font-weight: 800; font-size: 14px; min-width: 40px; text-align: right; color: var(--accent-blue); }
+.own-template-bar {
+    width: 80px;
+    height: 6px;
+    background: var(--bg-input);
+    border-radius: 3px;
+    overflow: hidden;
+}
+.own-template-fill {
+    height: 100%;
+    background: var(--accent-blue);
+    border-radius: 3px;
+}
+
+@media (max-width: 768px) {
+    .own-movers { grid-template-columns: 1fr; }
+}

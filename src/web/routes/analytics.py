@@ -221,3 +221,158 @@ def get_trade_warroom(
         return get_warroom_data(session, user["user_id"], config.season, r)
     finally:
         session.close()
+
+
+@router.get("/ownership/movers")
+def get_ownership_movers(
+    round_num: int = Query(None, alias="round"),
+    limit: int = Query(10),
+    user: dict = Depends(get_current_user),
+) -> dict:
+    """Top ownership gainers and losers for a round."""
+    from src.models.database import Ownership, Player
+    from src.analytics.byes import detect_current_round
+
+    config = get_config()
+    session = get_session()
+    try:
+        r = round_num or config.current_round
+        try:
+            detected = detect_current_round(session, config.season)
+            if detected > 0 and round_num is None:
+                r = detected
+        except Exception:
+            pass
+
+        rows = (
+            session.execute(
+                select(Ownership, Player)
+                .join(Player, Ownership.player_id == Player.id)
+                .where(Ownership.season == config.season, Ownership.round == r)
+                .where(Ownership.ownership_change.isnot(None))
+                .order_by(Ownership.ownership_change.desc())
+            )
+            .all()
+        )
+
+        gainers = []
+        losers = []
+        for own, player in rows:
+            entry = {
+                "player_name": player.name,
+                "team": player.team,
+                "position": player.position,
+                "ownership_pct": own.ownership_pct,
+                "ownership_change": own.ownership_change,
+            }
+            if own.ownership_change and own.ownership_change > 0:
+                gainers.append(entry)
+            elif own.ownership_change and own.ownership_change < 0:
+                losers.append(entry)
+
+        return {
+            "round": r,
+            "gainers": gainers[:limit],
+            "losers": losers[-limit:] if losers else [],
+        }
+    finally:
+        session.close()
+
+
+@router.get("/ownership/pods")
+def get_ownership_pods(
+    min_avg: float = Query(80),
+    max_ownership: float = Query(15),
+    position: str = Query("all"),
+    user: dict = Depends(get_current_user),
+) -> dict:
+    """Find POD players: high average, low ownership."""
+    from src.models.database import Ownership, SupercoachScore
+    from sqlalchemy import func
+
+    config = get_config()
+    session = get_session()
+    try:
+        # Get players with scores this season
+        query = (
+            select(
+                Player.id, Player.name, Player.team, Player.position,
+                func.avg(SupercoachScore.score).label("avg_score"),
+            )
+            .join(SupercoachScore, SupercoachScore.player_id == Player.id)
+            .where(SupercoachScore.season == config.season, SupercoachScore.score.isnot(None))
+            .group_by(Player.id)
+            .having(func.avg(SupercoachScore.score) >= min_avg)
+            .order_by(func.avg(SupercoachScore.score).desc())
+            .limit(30)
+        )
+        if position != "all":
+            query = query.where(Player.position.ilike(f"%{position}%"))
+
+        results = session.execute(query).all()
+
+        pods = []
+        for pid, name, team, pos, avg_score in results:
+            # Get latest ownership
+            own = session.execute(
+                select(Ownership.ownership_pct)
+                .where(Ownership.player_id == pid, Ownership.season == config.season)
+                .order_by(Ownership.round.desc())
+                .limit(1)
+            ).scalar_one_or_none()
+
+            own_pct = own if own else 0.0
+            if own_pct <= max_ownership:
+                pods.append({
+                    "player_name": name,
+                    "team": team,
+                    "position": pos,
+                    "avg_score": round(avg_score, 1),
+                    "ownership_pct": own_pct,
+                })
+
+        return {"pods": pods[:20]}
+    finally:
+        session.close()
+
+
+@router.get("/ownership/template")
+def get_template_players(
+    threshold: float = Query(30),
+    user: dict = Depends(get_current_user),
+) -> dict:
+    """Players owned by >threshold% of coaches."""
+    from src.models.database import Ownership
+
+    config = get_config()
+    session = get_session()
+    try:
+        rows = (
+            session.execute(
+                select(Ownership, Player)
+                .join(Player, Ownership.player_id == Player.id)
+                .where(
+                    Ownership.season == config.season,
+                    Ownership.ownership_pct >= threshold,
+                )
+                .order_by(Ownership.ownership_pct.desc())
+            )
+            .all()
+        )
+
+        templates = []
+        seen = set()
+        for own, player in rows:
+            if player.id in seen:
+                continue
+            seen.add(player.id)
+            templates.append({
+                "player_name": player.name,
+                "team": player.team,
+                "position": player.position,
+                "ownership_pct": own.ownership_pct,
+            })
+
+        return {"template_players": templates}
+    finally:
+        session.close()

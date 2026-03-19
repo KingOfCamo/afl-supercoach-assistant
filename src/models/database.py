@@ -309,6 +309,25 @@ class ByeRound(Base):
     team: Mapped[str] = mapped_column(String(50), index=True)
 
 
+class Ownership(Base):
+    """Player ownership percentages and weekly swings."""
+
+    __tablename__ = "ownership"
+    __table_args__ = (
+        UniqueConstraint("player_id", "season", "round", name="uq_ownership_player_season_round"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    player_id: Mapped[int] = mapped_column(ForeignKey("players.id"), index=True)
+    season: Mapped[int] = mapped_column(Integer, index=True)
+    round: Mapped[int] = mapped_column(Integer, index=True)
+    ownership_pct: Mapped[Optional[float]] = mapped_column(Float)
+    ownership_change: Mapped[Optional[float]] = mapped_column(Float)
+    source: Mapped[Optional[str]] = mapped_column(String(50), default="scraped")
+
+    player: Mapped["Player"] = relationship()
+
+
 class TeamDVP(Base):
     """Difficulty vs Position: points conceded by a team to each position.
 

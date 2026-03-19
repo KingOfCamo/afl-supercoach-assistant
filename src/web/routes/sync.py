@@ -17,6 +17,7 @@ from src.sync.tasks import (
     sync_fanfooty,
     sync_footywire_injuries,
     sync_footywire_scores,
+    sync_ownership,
     sync_squiggle,
     sync_supercoach_players,
     sync_supercoach_round_data,
@@ -38,6 +39,7 @@ SOURCE_MAP = {
     "afl_lineups": sync_afl_lineups,
     "afl_news_injuries": sync_afl_news_injuries,
     "bye_rounds": sync_bye_rounds,
+    "ownership": sync_ownership,
 }
 
 

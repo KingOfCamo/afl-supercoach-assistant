@@ -78,6 +78,7 @@ async def lifespan(app: FastAPI):
         sync_fanfooty,
         sync_footywire_injuries,
         sync_footywire_scores,
+        sync_ownership,
         sync_squiggle,
         sync_supercoach_players,
         sync_supercoach_round_data,
@@ -144,6 +145,12 @@ async def lifespan(app: FastAPI):
         "interval", hours=6,
         id="bye_rounds",
         name="Bye Round Derivation",
+    )
+    scheduler.add_job(
+        sync_ownership,
+        "interval", hours=12,
+        id="ownership",
+        name="Ownership Swings",
     )
 
     scheduler.start()

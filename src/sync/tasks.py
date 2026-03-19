@@ -295,6 +295,33 @@ async def sync_bye_rounds() -> None:
         logger.error("sync_bye_rounds failed: %s", e)
 
 
+# ── Ownership Swings ──
+
+
+async def sync_ownership() -> None:
+    """Scrape ownership swings from SuperCoachTalk."""
+    source = "ownership"
+    if should_skip(source, off_day_hours=12.0):
+        return
+
+    record_start(source)
+    try:
+        from src.scrapers.ownership import OwnershipScraper
+
+        config = get_config()
+        scraper = OwnershipScraper()
+        try:
+            count = await scraper.scrape_ownership_swings(config.season, config.current_round)
+        finally:
+            await scraper.close()
+
+        record_success(source, count)
+        logger.info("sync_ownership: %d records", count)
+    except Exception as e:
+        record_error(source, str(e))
+        logger.error("sync_ownership failed: %s", e)
+
+
 # ── Run all sources ──
 
 
@@ -313,6 +340,7 @@ async def sync_all() -> Dict[str, Any]:
         ("fanfooty", sync_fanfooty),
         ("afl_lineups", sync_afl_lineups),
         ("afl_news_injuries", sync_afl_news_injuries),
+        ("ownership", sync_ownership),
     ]
 
     for name, fn in tasks:

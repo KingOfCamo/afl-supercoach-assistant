@@ -133,6 +133,25 @@ def get_warroom_data(
             "reason": t.reason,
         })
 
+    # 7. Ownership data
+    ownership = {}
+    try:
+        from src.models.database import Ownership
+        for p in team:
+            own = session.execute(
+                select(Ownership)
+                .where(Ownership.player_id == p["player_id"], Ownership.season == season)
+                .order_by(Ownership.round.desc())
+                .limit(1)
+            ).scalar_one_or_none()
+            if own:
+                ownership[str(p["player_id"])] = {
+                    "pct": own.ownership_pct,
+                    "change": own.ownership_change,
+                }
+    except Exception:
+        pass  # ownership table may not exist yet
+
     return {
         "round": round_num,
         "season": season,
@@ -147,6 +166,7 @@ def get_warroom_data(
         "injuries": injuries,
         "bye_data": bye_data,
         "trade_history": trade_history,
+        "ownership": ownership,
     }
 
 
@@ -292,6 +312,20 @@ def build_trade_prompt(data: dict) -> str:
     if not data["trade_history"]:
         history_text += "  No trades yet this season.\n"
 
+    # Ownership data
+    ownership_text = "OWNERSHIP DATA:\n"
+    ownership = data.get("ownership", {})
+    if ownership:
+        for p in data["team"]:
+            own = ownership.get(str(p["player_id"]), {})
+            pct = own.get("pct")
+            chg = own.get("change")
+            pct_str = f"{pct:.0f}%" if pct else "N/A"
+            chg_str = f" ({'+' if chg > 0 else ''}{chg:.1f}%)" if chg else ""
+            ownership_text += f"  {p['player_name']}: {pct_str}{chg_str}\n"
+    else:
+        ownership_text += "  No ownership data available.\n"
+
     return f"""Analyse my SuperCoach team for Round {data['round']} and recommend trades.
 
 {team_text}
@@ -303,6 +337,7 @@ TRADE RESOURCES:
 {problems_text}
 {injury_text}
 {bye_text}
+{ownership_text}
 {history_text}
 
 What trades should I make this round? If I shouldn't trade, tell me that too."""
@@ -319,6 +354,12 @@ RULES:
 5. For each recommendation: player out, player in, price difference, projected uplift, bye impact, risk
 6. Check position eligibility
 7. Priority: injuries > underperformers losing money > bye issues > upgrades
+8. Consider ownership when recommending trades:
+   - High ownership (>30%) = template, safe but no rank gain
+   - Low ownership (<10%) = POD (Point of Difference), high risk/reward
+   - Rising ownership = bandwagon loading, recommend getting on early
+   - Falling ownership = potential panic sell to exploit
+   - Always mention ownership % for trade-in targets
 
 RESPONSE FORMAT:
 ## URGENT TRADES
