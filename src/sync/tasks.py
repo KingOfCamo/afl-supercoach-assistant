@@ -220,17 +220,21 @@ async def sync_squiggle() -> None:
 async def sync_afl_lineups() -> None:
     """Scrape team lineups — try FootyWire first (reliable), AFL API as fallback."""
     source = "afl_lineups"
+    logger.info("sync_afl_lineups: starting")
     if should_skip(source, off_day_hours=4.0):
+        logger.info("sync_afl_lineups: skipped (recently run)")
         return
 
     record_start(source)
     config = get_config()
     count = 0
+    logger.info("sync_afl_lineups: season=%d round=%d", config.season, config.current_round)
 
     # Source 1: FootyWire (server-rendered HTML, always works)
     try:
         from src.scrapers.afl_lineups import scrape_footywire_selections
 
+        logger.info("sync_afl_lineups: trying FootyWire...")
         count = await scrape_footywire_selections(config.season, config.current_round)
         if count > 0:
             record_success(source, count)
