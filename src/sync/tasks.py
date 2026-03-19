@@ -251,7 +251,21 @@ async def sync_afl_lineups() -> None:
         import traceback
         traceback.print_exc()
 
-    # Source 2: AFL.com.au API (may fail due to auth/JS)
+    # Source 2: FanFooty teamsheets (server-rendered, reliable backup)
+    try:
+        from src.scrapers.afl_lineups import scrape_fanfooty_teamsheets
+
+        print("[LINEUP] trying FanFooty teamsheets...", flush=True)
+        count = await scrape_fanfooty_teamsheets(config.season, round_num)
+        if count > 0:
+            record_success(source, count)
+            print(f"[LINEUP] SUCCESS via FanFooty: {count} entries", flush=True)
+            return
+        print("[LINEUP] FanFooty returned 0 entries", flush=True)
+    except Exception as e:
+        print(f"[LINEUP] FanFooty FAILED: {e}", flush=True)
+
+    # Source 3: AFL.com.au API (may fail due to auth/JS)
     try:
         from src.scrapers.afl_lineups import AflLineupScraper
 
@@ -265,7 +279,7 @@ async def sync_afl_lineups() -> None:
         print(f"[LINEUP] AFL API: {count} entries", flush=True)
     except Exception as e:
         record_error(source, str(e))
-        print(f"[LINEUP] BOTH SOURCES FAILED: {e}", flush=True)
+        print(f"[LINEUP] ALL SOURCES FAILED: {e}", flush=True)
 
 
 # ── AFL News Injuries ──

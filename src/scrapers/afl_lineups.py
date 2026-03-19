@@ -405,8 +405,9 @@ async def scrape_footywire_selections(season: int, round_num: int) -> int:
     async with httpx.AsyncClient(timeout=20.0, follow_redirects=True) as client:
         resp = await client.get(
             "https://www.footywire.com/afl/footy/afl_team_selections",
-            headers={"User-Agent": "SuperCoachAI/1.0 (lineup-sync)"},
+            headers={"User-Agent": "Mozilla/5.0 (compatible; SuperCoachAI/1.0)"},
         )
+    print(f"[LINEUP-FW] status={resp.status_code} len={len(resp.text)}", flush=True)
     if resp.status_code != 200:
         logger.error("FootyWire returned %d", resp.status_code)
         return 0
@@ -415,6 +416,7 @@ async def scrape_footywire_selections(season: int, round_num: int) -> int:
     all_entries: List[Dict[str, Any]] = []
 
     match_titles = soup.find_all("td", class_="tbtitle")
+    print(f"[LINEUP-FW] found {len(match_titles)} match titles", flush=True)
     for mt in match_titles:
         title = mt.get_text(strip=True)
         if " v " not in title:
@@ -704,3 +706,151 @@ def _match_fw_name(
                 return p
 
     return None
+
+
+# ── FanFooty Teamsheets (backup source) ──
+
+
+async def scrape_fanfooty_teamsheets(season: int, round_num: int) -> int:
+    """Scrape team selections from FanFooty teamsheets page.
+
+    FanFooty serves server-rendered HTML with team names in <strong>/<b> tags
+    and player names in <a> tags. Position lines: FB:, HB:, C:, HF:, FF:, Fol:, Int:, Emg:
+
+    Returns number of records written.
+    """
+    from bs4 import BeautifulSoup
+    import re
+
+    init_db()
+
+    async with httpx.AsyncClient(timeout=20.0, follow_redirects=True) as client:
+        resp = await client.get(
+            "https://www.fanfooty.com.au/game/teamsheets.php",
+            headers={"User-Agent": "Mozilla/5.0 (compatible; SuperCoachAI/1.0)"},
+        )
+    print(f"[LINEUP-FF] status={resp.status_code} len={len(resp.text)}", flush=True)
+    if resp.status_code != 200:
+        return 0
+
+    soup = BeautifulSoup(resp.text, "html.parser")
+    all_entries: List[Dict[str, Any]] = []
+
+    _team_map = {
+        "hawthorn": "Hawthorn", "sydney": "Sydney", "adelaide": "Adelaide",
+        "western bulldogs": "Western Bulldogs", "brisbane": "Brisbane Lions",
+        "brisbane lions": "Brisbane Lions", "carlton": "Carlton",
+        "collingwood": "Collingwood", "essendon": "Essendon",
+        "fremantle": "Fremantle", "geelong": "Geelong",
+        "geelong cats": "Geelong", "gold coast": "Gold Coast",
+        "gold coast suns": "Gold Coast", "gws": "GWS",
+        "gws giants": "GWS", "g. w. sydney": "GWS",
+        "melbourne": "Melbourne", "north melbourne": "North Melbourne",
+        "port adelaide": "Port Adelaide", "richmond": "Richmond",
+        "st kilda": "St Kilda", "west coast": "West Coast",
+        "west coast eagles": "West Coast", "w. bulldogs": "Western Bulldogs",
+    }
+
+    html_str = str(soup)
+    team_pattern = re.compile(r'<(?:strong|b)>(.*?)</(?:strong|b)>', re.IGNORECASE)
+    team_matches = list(team_pattern.finditer(html_str))
+
+    found_teams = []
+    for m in team_matches:
+        raw = m.group(1).strip()
+        norm = _team_map.get(raw.lower())
+        if not norm:
+            try:
+                norm = normalize_team(raw)
+            except Exception:
+                continue
+        if norm:
+            found_teams.append((m, norm))
+
+    print(f"[LINEUP-FF] found {len(found_teams)} team headers", flush=True)
+
+    pos_prefixes = ["FB:", "HB:", "C:", "HF:", "FF:", "Fol:", "Int:", "Emg:"]
+
+    for idx, (m, team_norm) in enumerate(found_teams):
+        start = m.end()
+        end = found_teams[idx + 1][0].start() if idx + 1 < len(found_teams) else len(html_str)
+        block_soup = BeautifulSoup(html_str[start:end], "html.parser")
+        block_text = block_soup.get_text(separator="\n")
+        lines = [l.strip() for l in block_text.split("\n") if l.strip()]
+
+        for line in lines:
+            for prefix in pos_prefixes:
+                if line.startswith(prefix):
+                    status = "EMERGENCY" if prefix == "Emg:" else "NAMED"
+                    player_text = line[len(prefix):].strip()
+                    for pname in player_text.split(","):
+                        clean = re.sub(r'<[^>]+>', '', pname).strip().rstrip(",").strip()
+                        if clean and len(clean) > 2:
+                            all_entries.append({
+                                "name": clean,
+                                "team": team_norm,
+                                "status": status,
+                                "match_position": prefix.rstrip(":"),
+                                "opponent": "",
+                            })
+                    break
+
+    print(f"[LINEUP-FF] parsed {len(all_entries)} entries", flush=True)
+    if not all_entries:
+        return 0
+
+    # Upsert into DB
+    session = get_session()
+    count = 0
+    try:
+        all_players = session.execute(select(Player)).scalars().all()
+        by_surname: Dict[str, List[Player]] = {}
+        for p in all_players:
+            name_parts = p.name.lower().split()
+            if name_parts:
+                by_surname.setdefault(name_parts[-1], []).append(p)
+
+        for entry in all_entries:
+            player = _match_fw_name(entry["name"], entry["team"], by_surname, all_players)
+            if not player:
+                # FanFooty uses full names — try exact match
+                for p in all_players:
+                    if p.name.lower() == entry["name"].lower():
+                        player = p
+                        break
+            if not player:
+                logger.debug("FanFooty no match: %s (%s)", entry["name"], entry["team"])
+                continue
+
+            existing = session.execute(
+                select(LineupStatus).where(
+                    LineupStatus.player_id == player.id,
+                    LineupStatus.season == season,
+                    LineupStatus.round == round_num,
+                )
+            ).scalar_one_or_none()
+
+            if existing:
+                existing.status = entry["status"]
+                existing.match_position = entry["match_position"]
+                existing.opponent = entry.get("opponent", "")
+            else:
+                session.add(LineupStatus(
+                    player_id=player.id,
+                    season=season,
+                    round=round_num,
+                    status=entry["status"],
+                    match_position=entry["match_position"],
+                    opponent=entry.get("opponent", ""),
+                ))
+            count += 1
+
+        session.commit()
+        print(f"[LINEUP-FF] stored {count} entries for round {round_num}", flush=True)
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+    return count
