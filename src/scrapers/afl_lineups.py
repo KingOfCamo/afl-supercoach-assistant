@@ -354,3 +354,269 @@ class AflLineupScraper:
             session.close()
 
         return count
+
+
+# ──────────────────────────────────────────────────────────────
+# FootyWire Fallback — server-rendered HTML, no JS needed
+# ──────────────────────────────────────────────────────────────
+
+FOOTYWIRE_TEAM_MAP: Dict[str, str] = {
+    "Adelaide": "Adelaide",
+    "Brisbane Lions": "Brisbane",
+    "Carlton": "Carlton",
+    "Collingwood": "Collingwood",
+    "Essendon": "Essendon",
+    "Fremantle": "Fremantle",
+    "Geelong": "Geelong",
+    "Gold Coast": "Gold Coast",
+    "GWS": "GWS",
+    "Hawthorn": "Hawthorn",
+    "Melbourne": "Melbourne",
+    "North Melbourne": "North Melbourne",
+    "Port Adelaide": "Port Adelaide",
+    "Richmond": "Richmond",
+    "St Kilda": "St Kilda",
+    "Sydney": "Sydney",
+    "West Coast": "West Coast",
+    "Western Bulldogs": "Western Bulldogs",
+}
+
+POSITION_LABELS = {"FB", "HB", "C", "HF", "FF", "Fol"}
+
+
+async def scrape_footywire_selections(season: int, round_num: int) -> int:
+    """Scrape team selections from FootyWire and upsert into lineup_status.
+
+    FootyWire page structure (per match):
+      - td.tbtitle  "Home v Away (Venue)"
+      - Next tr contains 4 inner tables:
+          [0] Home interchange + emergencies + ins/outs
+          [1] Position grid (12 rows: 6 home + 6 away, 4 cells each)
+          [2] Stats (ignored)
+          [3] Away interchange + emergencies + ins/outs
+
+    Returns number of records written.
+    """
+    from bs4 import BeautifulSoup
+    import re
+
+    init_db()
+
+    async with httpx.AsyncClient(timeout=20.0, follow_redirects=True) as client:
+        resp = await client.get(
+            "https://www.footywire.com/afl/footy/afl_team_selections",
+            headers={"User-Agent": "SuperCoachAI/1.0 (lineup-sync)"},
+        )
+    if resp.status_code != 200:
+        logger.error("FootyWire returned %d", resp.status_code)
+        return 0
+
+    soup = BeautifulSoup(resp.text, "html.parser")
+    all_entries: List[Dict[str, Any]] = []
+
+    match_titles = soup.find_all("td", class_="tbtitle")
+    for mt in match_titles:
+        title = mt.get_text(strip=True)
+        if " v " not in title:
+            continue
+
+        parts = title.split("(")[0].strip().split(" v ")
+        home_team = parts[0].strip()
+        away_team = parts[1].strip() if len(parts) > 1 else ""
+        home_norm = normalize_team(home_team)
+        away_norm = normalize_team(away_team)
+
+        # Navigate to the content row
+        title_row = mt.find_parent("tr")
+        if not title_row:
+            continue
+        content_row = title_row.find_next_sibling("tr")
+        if not content_row:
+            continue
+
+        inner_tables = content_row.find_all("table")
+        if len(inner_tables) < 4:
+            logger.warning("Expected 4 inner tables for %s, got %d", title, len(inner_tables))
+            continue
+
+        # ── Table 0: Home interchange / emergencies / ins / outs ──
+        home_bench = _parse_bench_table(inner_tables[0])
+        # ── Table 3: Away interchange / emergencies / ins / outs ──
+        away_bench = _parse_bench_table(inner_tables[3])
+
+        # ── Table 1: Position grid ──
+        # Rows alternate: even rows = home team, odd rows = away team
+        pos_table = inner_tables[1]
+        pos_rows = pos_table.find_all("tr")
+
+        for i, row in enumerate(pos_rows):
+            cells = row.find_all("td")
+            if len(cells) < 4:
+                continue
+            pos_label = cells[0].get_text(strip=True)
+            is_home = (i % 2 == 0)
+            team = home_norm if is_home else away_norm
+            opponent = away_norm if is_home else home_norm
+            for cell in cells[1:]:
+                name = cell.get_text(strip=True)
+                if name:
+                    all_entries.append({
+                        "name": name,
+                        "team": team,
+                        "status": "NAMED",
+                        "match_position": pos_label,
+                        "opponent": opponent,
+                    })
+
+        # Add interchange players (NAMED, position=INT)
+        for name in home_bench.get("interchange", []):
+            all_entries.append({
+                "name": name, "team": home_norm, "status": "NAMED",
+                "match_position": "INT", "opponent": away_norm,
+            })
+        for name in away_bench.get("interchange", []):
+            all_entries.append({
+                "name": name, "team": away_norm, "status": "NAMED",
+                "match_position": "INT", "opponent": home_norm,
+            })
+
+        # Add emergencies
+        for name in home_bench.get("emergencies", []):
+            all_entries.append({
+                "name": name, "team": home_norm, "status": "EMERGENCY",
+                "match_position": "EMERG", "opponent": away_norm,
+            })
+        for name in away_bench.get("emergencies", []):
+            all_entries.append({
+                "name": name, "team": away_norm, "status": "EMERGENCY",
+                "match_position": "EMERG", "opponent": home_norm,
+            })
+
+    if not all_entries:
+        logger.info("FootyWire: no lineup entries found")
+        return 0
+
+    # ── Upsert into DB (same pattern as AFL API scraper) ──
+    session = get_session()
+    count = 0
+    try:
+        all_players = session.execute(select(Player)).scalars().all()
+        # Build lookup: lowercase surname -> list of players
+        by_surname: Dict[str, List[Player]] = {}
+        for p in all_players:
+            parts = p.name.lower().split()
+            if parts:
+                surname = parts[-1]
+                by_surname.setdefault(surname, []).append(p)
+
+        for entry in all_entries:
+            player = _match_fw_name(entry["name"], entry["team"], by_surname, all_players)
+            if not player:
+                logger.debug("No match for %s (%s)", entry["name"], entry["team"])
+                continue
+
+            existing = session.execute(
+                select(LineupStatus).where(
+                    LineupStatus.player_id == player.id,
+                    LineupStatus.season == season,
+                    LineupStatus.round == round_num,
+                )
+            ).scalar_one_or_none()
+
+            if existing:
+                existing.status = entry["status"]
+                existing.match_position = entry["match_position"]
+                existing.opponent = entry.get("opponent")
+            else:
+                session.add(LineupStatus(
+                    player_id=player.id,
+                    season=season,
+                    round=round_num,
+                    status=entry["status"],
+                    match_position=entry["match_position"],
+                    opponent=entry.get("opponent"),
+                ))
+            count += 1
+
+        session.commit()
+        logger.info("FootyWire: %d lineup entries for round %d", count, round_num)
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+    return count
+
+
+def _parse_bench_table(table) -> Dict[str, List[str]]:
+    """Parse a FootyWire interchange/emergencies/ins/outs table.
+
+    Returns {"interchange": [...], "emergencies": [...], "ins": [...], "outs": [...]}.
+    """
+    result: Dict[str, List[str]] = {
+        "interchange": [], "emergencies": [], "ins": [], "outs": [],
+    }
+    cells = table.find_all("td")
+    section = "interchange"
+    section_map = {
+        "Interchange": "interchange",
+        "Emergencies": "emergencies",
+        "Ins": "ins",
+        "Outs": "outs",
+    }
+    for cell in cells:
+        text = cell.get_text(strip=True)
+        if text in section_map:
+            section = section_map[text]
+            continue
+        if text and section in result:
+            result[section].append(text)
+    return result
+
+
+def _match_fw_name(
+    fw_name: str,
+    team: str,
+    by_surname: Dict[str, List["Player"]],
+    all_players: List["Player"],
+) -> Optional["Player"]:
+    """Match a FootyWire name like 'J Sicily' to a Player record.
+
+    FootyWire uses initial + surname (e.g. 'J Newcombe').
+    DB uses full name (e.g. 'Jai Newcombe').
+    """
+    parts = fw_name.strip().split()
+    if len(parts) < 2:
+        return None
+
+    initial = parts[0].rstrip(".").upper()
+    surname = parts[-1].lower()
+    norm_team = normalize_team(team)
+
+    # Find all players with this surname
+    candidates = by_surname.get(surname, [])
+
+    # Filter by team first
+    team_matches = [p for p in candidates if normalize_team(p.team) == norm_team]
+    if len(team_matches) == 1:
+        return team_matches[0]
+
+    # Multiple on same team — match by initial
+    for p in team_matches:
+        if p.name.upper().startswith(initial):
+            return p
+
+    # Try all players (cross-team) — last resort
+    for p in candidates:
+        if p.name.upper().startswith(initial):
+            return p
+
+    # Handle special cases like "M D'Ambrosio"
+    if "'" in fw_name:
+        full_surname = " ".join(parts[1:]).lower()
+        for p in all_players:
+            if p.name.lower().endswith(full_surname) and normalize_team(p.team) == norm_team:
+                return p
+
+    return None

@@ -218,16 +218,32 @@ async def sync_squiggle() -> None:
 
 
 async def sync_afl_lineups() -> None:
-    """Scrape team lineups from AFL.com.au."""
+    """Scrape team lineups — try FootyWire first (reliable), AFL API as fallback."""
     source = "afl_lineups"
     if should_skip(source, off_day_hours=4.0):
         return
 
     record_start(source)
+    config = get_config()
+    count = 0
+
+    # Source 1: FootyWire (server-rendered HTML, always works)
+    try:
+        from src.scrapers.afl_lineups import scrape_footywire_selections
+
+        count = await scrape_footywire_selections(config.season, config.current_round)
+        if count > 0:
+            record_success(source, count)
+            logger.info("sync_afl_lineups (footywire): %d entries", count)
+            return
+        logger.info("FootyWire returned 0 entries, trying AFL API...")
+    except Exception as e:
+        logger.warning("FootyWire lineup scrape failed: %s — trying AFL API", e)
+
+    # Source 2: AFL.com.au API (may fail due to auth/JS)
     try:
         from src.scrapers.afl_lineups import AflLineupScraper
 
-        config = get_config()
         scraper = AflLineupScraper()
         try:
             count = await scraper.scrape_round_lineups(config.season, config.current_round)
@@ -235,10 +251,10 @@ async def sync_afl_lineups() -> None:
             await scraper.close()
 
         record_success(source, count)
-        logger.info("sync_afl_lineups: %d entries", count)
+        logger.info("sync_afl_lineups (afl api): %d entries", count)
     except Exception as e:
         record_error(source, str(e))
-        logger.error("sync_afl_lineups failed: %s", e)
+        logger.error("sync_afl_lineups failed (both sources): %s", e)
 
 
 # ── AFL News Injuries ──
