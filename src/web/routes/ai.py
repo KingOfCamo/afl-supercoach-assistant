@@ -39,6 +39,12 @@ class TradeChatRequest(BaseModel):
     history: list[TradeChatMessage] = []
 
 
+class WeeklyBriefingRequest(BaseModel):
+    round: int = None
+    season: int = 2026
+    force: bool = False
+
+
 def _get_advisor(user_id: int):
     """Create a SuperCoachAdvisor instance scoped to a user."""
     from src.ai.advisor import SuperCoachAdvisor
@@ -204,3 +210,125 @@ async def ai_trade_chat(
             "question": request.question,
             "generated_at": datetime.utcnow().isoformat(),
         }
+
+
+@router.get("/weekly-briefing")
+def get_weekly_briefing(
+    round_num: int = None,
+    user: dict = Depends(get_current_user),
+) -> dict:
+    """Get cached weekly briefing for a round."""
+    from src.models.database import WeeklyBriefing, get_session
+    from src.analytics.byes import detect_current_round
+    from sqlalchemy import select, desc
+
+    config = get_config()
+    session = get_session()
+    try:
+        r = round_num or config.current_round
+        try:
+            detected = detect_current_round(session, config.season)
+            if detected > 0 and round_num is None:
+                r = detected
+        except Exception:
+            pass
+
+        cached = session.execute(
+            select(WeeklyBriefing)
+            .where(WeeklyBriefing.season == config.season, WeeklyBriefing.round == r)
+            .order_by(desc(WeeklyBriefing.generated_at))
+            .limit(1)
+        ).scalar_one_or_none()
+
+        if cached:
+            return {
+                "briefing": cached.content,
+                "round": r,
+                "generated_at": cached.generated_at.isoformat() if cached.generated_at else None,
+                "exists": True,
+            }
+        return {"exists": False, "round": r}
+    finally:
+        session.close()
+
+
+@router.post("/weekly-briefing")
+async def generate_weekly_briefing(
+    request: WeeklyBriefingRequest,
+    user: dict = Depends(get_current_user),
+) -> dict:
+    """Generate a comprehensive round briefing. Caches the result."""
+    from src.analytics.trade_warroom import (
+        get_warroom_data, build_weekly_briefing_prompt, WEEKLY_BRIEFING_SYSTEM_PROMPT,
+    )
+    from src.analytics.byes import detect_current_round
+    from src.models.database import WeeklyBriefing, get_session
+    from sqlalchemy import select, desc
+
+    config = get_config()
+    session = get_session()
+    try:
+        r = request.round or config.current_round
+        try:
+            detected = detect_current_round(session, config.season)
+            if detected > 0 and request.round is None:
+                r = detected
+        except Exception:
+            pass
+
+        # Check cache unless force regenerate
+        if not request.force:
+            cached = session.execute(
+                select(WeeklyBriefing)
+                .where(WeeklyBriefing.season == request.season, WeeklyBriefing.round == r)
+                .order_by(desc(WeeklyBriefing.generated_at))
+                .limit(1)
+            ).scalar_one_or_none()
+            if cached:
+                return {
+                    "briefing": cached.content,
+                    "round": r,
+                    "generated_at": cached.generated_at.isoformat() if cached.generated_at else None,
+                    "cached": True,
+                }
+
+        # Gather data
+        warroom_data = get_warroom_data(session, user["user_id"], request.season, r)
+        prompt = build_weekly_briefing_prompt(warroom_data, r)
+    finally:
+        session.close()
+
+    # Generate via Claude
+    try:
+        advisor = _get_advisor(user["user_id"])
+        briefing_text = await asyncio.to_thread(
+            advisor._call_claude,
+            prompt,
+            system_override=WEEKLY_BRIEFING_SYSTEM_PROMPT,
+        )
+    except Exception as e:
+        return {
+            "briefing": f"Error generating briefing: {str(e)}",
+            "round": r,
+            "generated_at": datetime.utcnow().isoformat(),
+            "cached": False,
+        }
+
+    # Cache it
+    session = get_session()
+    try:
+        session.add(WeeklyBriefing(
+            season=request.season,
+            round=r,
+            content=briefing_text,
+        ))
+        session.commit()
+    finally:
+        session.close()
+
+    return {
+        "briefing": briefing_text,
+        "round": r,
+        "generated_at": datetime.utcnow().isoformat(),
+        "cached": False,
+    }

@@ -375,3 +375,105 @@ RESPONSE FORMAT:
 (Players to monitor as trade-in targets next round)
 
 For each trade: Player OUT -> Player IN, price delta, why out, why in, risk, confidence (High/Medium/Low)."""
+
+
+WEEKLY_BRIEFING_SYSTEM_PROMPT = """\
+You are an elite AFL SuperCoach analyst delivering a personalised weekly round briefing. Write in a confident, punchy style like a premium sports newsletter.
+
+Structure with these EXACT sections using markdown headers:
+
+## Team Health
+Quick snapshot: how many playing, projected total, any concerns.
+
+## Captain Pick
+Top captain choice with data reasoning. Include a VC and a punt pick.
+For each: projected score, opponent, DVP rank, ownership %, and 1-2 sentence justification.
+
+## Alerts
+Injuries, late outs, team selection surprises. Classify each as:
+- CRITICAL (must act now)
+- WARNING (monitor)
+- OPPORTUNITY (someone else's loss is your gain)
+
+## Trade of the Week
+The single best trade. Player out, player in, price impact, why.
+Keep to one trade with clear reasoning. Reference the Trade War Room for more.
+
+## Ownership Radar
+Biggest ownership movers. Flag anyone crossing template threshold (30%).
+Identify one POD worth considering.
+
+## Bye Watch
+Only include if byes affect current or next round.
+Show affected players, whether emergencies cover, bye readiness.
+
+## Key Matchups
+List round's games with one-line previews.
+Highlight which of the user's players are in featured games.
+
+RULES:
+- Be specific — use actual player names, scores, prices, ownership from the data
+- Give clear recommendations with confidence levels, don't hedge everything
+- Keep it punchy — 2-3 minutes to read
+- Use the data provided, don't make up statistics
+- Reference the Trade War Room when discussing trades"""
+
+
+def build_weekly_briefing_prompt(warroom_data: dict, round_num: int) -> str:
+    """Build the comprehensive prompt for the weekly briefing."""
+    team_text = f"MY TEAM (Round {round_num}):\n"
+    field_projected = 0
+
+    for p in warroom_data["team"]:
+        slot = p.get("position_slot", "")
+        is_field = not slot.startswith("BENCH")
+        proj = p.get("last_score") or p.get("sc_avg") or 0
+        if is_field:
+            field_projected += proj
+
+        own = warroom_data.get("ownership", {}).get(str(p.get("player_id")), {})
+        own_str = f" | Own: {own.get('pct', '?')}%" if own.get("pct") else ""
+
+        team_text += f"  {slot}: {p.get('player_name')} ({p.get('team')}, {p.get('position')}) ${p.get('price', 0) or 0:,} | Score: {p.get('last_score', 'N/A')} | BE: {p.get('breakeven', 'N/A')}{own_str}\n"
+
+    problems_text = "PROBLEMS:\n"
+    for prob in warroom_data.get("problems", []):
+        problems_text += f"  {prob['severity'].upper()}: {prob['name']} — {prob['detail']}\n"
+    if not warroom_data.get("problems"):
+        problems_text += "  None.\n"
+
+    injury_text = "INJURIES:\n"
+    for inj in warroom_data.get("injuries", []):
+        injury_text += f"  {inj['player_name']} ({inj['team']}) — {inj.get('injury_type', '?')} — {inj.get('status', '?')}\n"
+    if not warroom_data.get("injuries"):
+        injury_text += "  None.\n"
+
+    bye_text = "BYES:\n"
+    for rnd, teams in warroom_data.get("bye_data", {}).items():
+        bye_text += f"  Round {rnd}: {', '.join(teams)}\n"
+    if not warroom_data.get("bye_data"):
+        bye_text += "  No byes upcoming.\n"
+
+    ownership_text = "OWNERSHIP MOVERS:\n"
+    own_data = warroom_data.get("ownership", {})
+    if own_data:
+        for p in warroom_data["team"]:
+            own = own_data.get(str(p.get("player_id")), {})
+            if own.get("change"):
+                chg = own["change"]
+                ownership_text += f"  {p['player_name']}: {'+' if chg > 0 else ''}{chg:.1f}%\n"
+
+    return f"""Generate my personalised SuperCoach weekly briefing for Round {round_num}.
+
+{team_text}
+TRADE RESOURCES:
+  Trades: {warroom_data.get('trades_remaining', '?')}/{warroom_data.get('total_trades', 30)}
+  Boosts: {warroom_data.get('boosts_remaining', '?')}
+  Budget: ${warroom_data.get('budget_remaining', 0):,}
+
+{problems_text}
+{injury_text}
+{bye_text}
+{ownership_text}
+
+Projected field total: ~{field_projected:.0f} pts"""

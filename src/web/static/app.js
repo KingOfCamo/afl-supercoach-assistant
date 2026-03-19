@@ -165,6 +165,7 @@ const App = {
         this.state.currentSection = name;
 
         // Load data when switching sections
+        if (name === 'briefing') this.Briefing.load();
         if (name === 'dashboard') this.Dashboard.loadAll();
         if (name === 'byes') this.Byes.loadAll();
         if (name === 'warroom') this.WarRoom.loadAll();
@@ -2325,6 +2326,58 @@ const App = {
             }
             html += '</tbody></table>';
             container.innerHTML = html;
+        },
+    },
+
+    // --- Weekly Briefing ---
+    Briefing: {
+        async load() {
+            const content = document.getElementById('briefing-content');
+            const ts = document.getElementById('briefing-timestamp');
+            const round = App.state.config ? App.state.config.current_round : 1;
+
+            try {
+                const res = await authFetch(`${API_BASE}/api/ai/weekly-briefing?round_num=${round}`);
+                const data = await res.json();
+                if (data.exists) {
+                    content.innerHTML = `<div class="briefing-rendered">${renderMarkdown(data.briefing)}</div>`;
+                    ts.textContent = data.generated_at ? `Generated: ${new Date(data.generated_at).toLocaleDateString('en-AU', {weekday:'short', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'})}` : '';
+                } else {
+                    content.innerHTML = `
+                        <div class="empty-state" style="padding:30px">
+                            <p>No briefing for Round ${round} yet.</p>
+                            <button class="btn btn-primary btn-optimise" onclick="App.Briefing.generate(false)" style="margin-top:12px">Generate Briefing</button>
+                            <p style="font-size:11px;color:var(--text-muted);margin-top:8px">Briefings auto-generate on Thursday evenings after team selections.</p>
+                        </div>`;
+                    ts.textContent = '';
+                }
+            } catch (e) {
+                content.innerHTML = '<div class="empty-state">Failed to load briefing</div>';
+            }
+        },
+
+        async generate(force) {
+            const content = document.getElementById('briefing-content');
+            const btn = document.getElementById('briefing-regen-btn');
+            const round = App.state.config ? App.state.config.current_round : 1;
+
+            content.innerHTML = '<div class="loading"><div class="spinner"></div><div>AI is analysing your team, fixtures, injuries, and matchups...</div></div>';
+            if (btn) { btn.disabled = true; btn.textContent = 'Generating...'; }
+
+            try {
+                const res = await authFetch(`${API_BASE}/api/ai/weekly-briefing`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({round, season: 2026, force}),
+                });
+                const data = await res.json();
+                content.innerHTML = `<div class="briefing-rendered">${renderMarkdown(data.briefing)}</div>`;
+                document.getElementById('briefing-timestamp').textContent = data.cached ? '' : 'Generated: just now';
+            } catch (e) {
+                content.innerHTML = `<div class="empty-state" style="color:var(--accent-red)">Failed: ${e.message}</div>`;
+            }
+
+            if (btn) { btn.disabled = false; btn.textContent = 'Regenerate'; }
         },
     },
 

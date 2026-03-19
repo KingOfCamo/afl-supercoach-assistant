@@ -309,6 +309,18 @@ class ByeRound(Base):
     team: Mapped[str] = mapped_column(String(50), index=True)
 
 
+class WeeklyBriefing(Base):
+    """Cached AI-generated weekly round briefing."""
+
+    __tablename__ = "weekly_briefings"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    season: Mapped[int] = mapped_column(Integer, index=True)
+    round: Mapped[int] = mapped_column(Integer, index=True)
+    content: Mapped[str] = mapped_column(Text)
+    generated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class Ownership(Base):
     """Player ownership percentages and weekly swings."""
 
