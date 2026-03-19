@@ -1,27 +1,34 @@
-/* SuperCoach AI Dashboard — Dark Theme */
+/* SuperCoach AI Dashboard — Modern Vibrant Theme */
 
 :root {
-    --bg-primary: #0f1117;
-    --bg-secondary: #1a1d26;
-    --bg-card: #222630;
-    --bg-input: #2a2e3a;
-    --text-primary: #e4e7eb;
-    --text-secondary: #8b92a5;
-    --text-muted: #5a6178;
-    --accent-green: #22c55e;
+    --bg-primary: #f0f2f5;
+    --bg-secondary: #ffffff;
+    --bg-card: #ffffff;
+    --bg-input: #e8ecf1;
+    --bg-hover: #f5f7fa;
+    --text-primary: #1a202c;
+    --text-secondary: #64748b;
+    --text-muted: #94a3b8;
+    --accent-green: #10b981;
     --accent-red: #ef4444;
     --accent-blue: #3b82f6;
-    --accent-yellow: #eab308;
+    --accent-yellow: #f59e0b;
     --accent-cyan: #06b6d4;
-    --accent-purple: #a855f7;
-    --border: #2d3140;
-    --border-hover: #3d4256;
+    --accent-purple: #8b5cf6;
+    --accent-orange: #f97316;
+    --border: #e2e8f0;
+    --border-hover: #cbd5e1;
     --sidebar-width: 200px;
-    --sc-green: #2e7d32;
-    --sc-green-light: #43a047;
-    --sc-green-dark: #1b5e20;
-    --sc-gold: #c4a23c;
-    --sc-gold-dark: #a68932;
+    --sc-green: #059669;
+    --sc-green-light: #10b981;
+    --sc-green-dark: #047857;
+    --sc-gold: #d97706;
+    --sc-gold-dark: #b45309;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.1);
+    --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+    --gradient-blue: linear-gradient(135deg, #3b82f6, #2563eb);
+    --gradient-green: linear-gradient(135deg, #10b981, #059669);
 }
 
 * {
@@ -31,101 +38,193 @@
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
     background: var(--bg-primary);
     color: var(--text-primary);
     line-height: 1.5;
-    overflow: hidden;
     height: 100vh;
+    overflow: hidden;
 }
 
 /* Layout */
 .app-layout {
     display: flex;
+    flex-direction: column;
     height: 100vh;
+    overflow: hidden;
 }
 
-/* Header */
-.header {
+/* Top Navigation Bar */
+.top-nav {
     background: var(--bg-secondary);
     border-bottom: 1px solid var(--border);
-    padding: 12px 24px;
+    padding: 0 20px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-}
-
-.header h1 {
-    font-size: 18px;
-    font-weight: 700;
-    color: var(--accent-cyan);
-}
-
-.header .round-info {
-    color: var(--text-secondary);
-    font-size: 14px;
-}
-
-/* Sidebar */
-.sidebar {
-    width: var(--sidebar-width);
-    background: var(--bg-secondary);
-    border-right: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
+    height: 48px;
     flex-shrink: 0;
+    box-shadow: var(--shadow-sm);
 }
 
-.sidebar-title {
-    padding: 16px;
+.top-nav-left {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+}
+
+.top-nav-brand {
     font-size: 16px;
+    font-weight: 800;
+    color: var(--sc-green);
+    letter-spacing: -0.3px;
+}
+
+.top-nav-links {
+    display: flex;
+    gap: 0;
+    height: 48px;
+    align-items: stretch;
+}
+
+.nav-tab {
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    font-size: 12px;
     font-weight: 700;
-    color: var(--accent-cyan);
-    border-bottom: 1px solid var(--border);
-}
-
-.sidebar-title small {
-    display: block;
-    font-size: 11px;
-    color: var(--text-secondary);
-    font-weight: 400;
-    margin-top: 2px;
-}
-
-.nav-item {
-    display: block;
-    padding: 10px 16px;
+    letter-spacing: 0.5px;
     color: var(--text-secondary);
     text-decoration: none;
-    font-size: 14px;
     cursor: pointer;
-    border-left: 3px solid transparent;
+    border-bottom: 3px solid transparent;
     transition: all 0.15s;
 }
 
-.nav-item:hover {
-    background: var(--bg-card);
+.nav-tab:hover {
     color: var(--text-primary);
+    background: var(--bg-hover);
 }
 
-.nav-item.active {
-    background: var(--bg-card);
-    color: var(--accent-cyan);
-    border-left-color: var(--accent-cyan);
+.nav-tab.active {
+    color: var(--sc-green);
+    border-bottom-color: var(--sc-green);
 }
+
+.top-nav-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.nav-logout {
+    font-size: 12px;
+    color: var(--accent-red);
+    cursor: pointer;
+    padding: 4px 10px;
+    border-radius: 4px;
+}
+
+.nav-logout:hover {
+    background: rgba(239, 68, 68, 0.08);
+}
+
+/* Hidden sidebar (replaced by top-nav) */
+.sidebar { display: none; }
+.sidebar-title { display: none; }
 
 /* Main content */
 .main-content {
     flex: 1;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    overflow: auto;
+    min-height: 0;
 }
 
-.content-area {
-    flex: 1;
-    overflow-y: auto;
+.section-inner {
     padding: 20px 24px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+/* Stats Bar (SuperCoach style) */
+.stats-bar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 20px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+}
+
+.stats-bar-left {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+.stats-bar-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.stats-bar-sub {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.stats-bar-stats {
+    display: flex;
+    gap: 12px;
+    margin-left: auto;
+}
+
+.stat-pill {
+    text-align: center;
+    padding: 4px 16px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+
+.stat-pill-label {
+    display: block;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+.stat-pill-value {
+    display: block;
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--text-primary);
+    line-height: 1.2;
+}
+
+.stat-pill-value.cyan { color: var(--accent-cyan); }
+
+.stats-bar-right {
+    padding-left: 12px;
+    border-left: 1px solid var(--border);
+}
+
+.stats-bar-round {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+/* Salary bottom bar */
+.salary-bar-bottom {
+    padding: 6px 20px;
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border);
 }
 
 .section {
@@ -133,7 +232,11 @@ body {
 }
 
 .section.active {
-    display: block;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
 }
 
 /* Stat cards */
@@ -300,20 +403,84 @@ select.input {
 }
 
 /* Team Builder */
+/* Team Builder — three-column layout */
 .team-builder {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
-    height: calc(100vh - 130px);
+    display: flex;
+    gap: 0;
+    flex: 1;
+    min-height: 600px;
 }
 
-.team-builder .panel {
+/* Left: Player Search Sidebar */
+.search-sidebar {
+    width: 280px;
+    flex-shrink: 0;
     background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    overflow: hidden;
+    border-right: 1px solid var(--border);
     display: flex;
     flex-direction: column;
+    overflow: hidden;
+}
+
+.search-sidebar-header {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+}
+
+.search-sidebar-body {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 8px;
+}
+
+/* Search result cards */
+.search-card {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+}
+.search-card:hover {
+    background: var(--bg-hover);
+}
+.search-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px;
+}
+.search-card-name {
+    font-weight: 600;
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+.search-card-action {
+    flex-shrink: 0;
+}
+.search-card-meta {
+    display: flex;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+}
+.search-card-salary {
+    font-weight: 600;
+}
+.on-team-check {
+    color: var(--accent-green);
+    font-size: 14px;
+}
+
+/* Center + Right: Team Panel */
+.team-panel {
+    flex: 1;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
 }
 
 .panel-header {
@@ -334,7 +501,7 @@ select.input {
 .panel-body {
     flex: 1;
     overflow-y: auto;
-    padding: 12px;
+    padding: 0;
 }
 
 /* Team display */
@@ -403,13 +570,18 @@ select.input {
 .badge-emg { background: var(--bg-input); color: var(--text-secondary); }
 
 .team-slot .actions {
-    display: none;
+    display: flex;
     gap: 4px;
     margin-left: 8px;
 }
 
-.team-slot:hover .actions {
-    display: flex;
+.team-slot .actions .btn-sm {
+    opacity: 0.5;
+    transition: opacity 0.15s;
+}
+
+.team-slot:hover .actions .btn-sm {
+    opacity: 1;
 }
 
 .team-slot.empty {
@@ -457,9 +629,15 @@ select.input {
 .toolbar {
     display: flex;
     align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-    margin-bottom: 16px;
+    gap: 8px;
+    padding: 6px 20px;
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.toolbar-spacer {
+    flex: 1;
 }
 
 .toolbar .salary-counter {
@@ -685,7 +863,7 @@ select.input {
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(15, 17, 23, 0.95);
+    background: rgba(0, 0, 0, 0.5);
     z-index: 1000;
     display: flex;
     align-items: center;
@@ -756,16 +934,13 @@ select.input {
     border-width: 2px;
 }
 
-/* Connection indicator (sidebar) */
+/* Connection indicator (top nav) */
 .connection-indicator {
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 12px 16px;
-    margin-top: auto;
     font-size: 11px;
     color: var(--text-secondary);
-    border-top: 1px solid var(--border);
 }
 
 .connection-indicator .dot {
@@ -853,7 +1028,7 @@ select.input {
 }
 
 /* Remove panel padding when field view is active */
-#team-display:has(#field-view.active) {
+#team-display {
     padding: 0;
 }
 
@@ -862,7 +1037,6 @@ select.input {
     display: flex;
     gap: 0;
     height: 100%;
-    min-height: 620px;
 }
 
 /* The pitch — oval is decorative background, content not clipped */
@@ -872,20 +1046,20 @@ select.input {
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    padding: 16px 8px;
-    min-height: 600px;
+    padding: 12px 6px;
+    min-height: 0;
 }
 
-/* Oval background */
+/* Oval background — vibrant green field */
 .field-pitch::before {
     content: '';
     position: absolute;
     inset: 0;
     background: radial-gradient(ellipse 90% 95% at 50% 50%,
-        var(--sc-green-light) 0%,
-        var(--sc-green) 45%,
-        var(--sc-green-dark) 85%,
-        rgba(15, 17, 23, 0.6) 100%);
+        #22c55e 0%,
+        #16a34a 40%,
+        #15803d 75%,
+        #e2e8f0 100%);
     border-radius: 50%;
     z-index: 0;
 }
@@ -896,9 +1070,9 @@ select.input {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: 70px;
-    height: 70px;
-    border: 2px solid rgba(255, 255, 255, 0.1);
+    width: 80px;
+    height: 80px;
+    border: 2px solid rgba(255, 255, 255, 0.25);
     border-radius: 50%;
     pointer-events: none;
     z-index: 0;
@@ -911,7 +1085,7 @@ select.input {
     left: 12%;
     right: 12%;
     height: 1px;
-    background: rgba(255, 255, 255, 0.07);
+    background: rgba(255, 255, 255, 0.18);
     pointer-events: none;
     z-index: 0;
 }
@@ -921,23 +1095,24 @@ select.input {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 5px;
+    gap: 3px;
     z-index: 1;
     position: relative;
 }
 
-/* Position label pill — SuperCoach gold */
+/* Position label pill */
 .field-zone-label {
     display: inline-block;
-    padding: 3px 16px;
-    background: var(--sc-gold);
-    color: #1a1a1a;
-    font-size: 10px;
+    padding: 2px 12px;
+    background: rgba(255, 255, 255, 0.9);
+    color: #15803d;
+    font-size: 9px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.8px;
-    border-radius: 12px;
-    margin-bottom: 2px;
+    border-radius: 10px;
+    margin-bottom: 1px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
 }
 
 /* Cards row within a zone */
@@ -945,102 +1120,130 @@ select.input {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 5px;
+    gap: 4px;
 }
 
-/* Field player card */
+/* Field player card — clean glass style */
 .field-card {
-    width: 112px;
-    background: rgba(18, 20, 28, 0.93);
-    border-radius: 6px;
-    padding: 6px 8px;
-    border-left: 3px solid #444;
+    width: 130px;
+    border-radius: 8px;
+    padding: 6px 22px 6px 10px;
+    border: 1px solid rgba(255,255,255,0.6);
+    border-left: 3px solid var(--team-color, #94a3b8);
     position: relative;
-    cursor: default;
-    transition: transform 0.1s, box-shadow 0.1s;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    overflow: visible;
+    background: rgba(255,255,255,0.95);
+    color: #1e293b;
+    backdrop-filter: blur(8px);
 }
+/* No guernsey pattern — clean cards */
+.field-card::before { display: none; }
 
 .field-card:hover {
-    transform: scale(1.06);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-    z-index: 2;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px color-mix(in srgb, var(--team-color, #94a3b8) 25%, transparent),
+                0 2px 6px rgba(0,0,0,0.08);
+    border-left-width: 4px;
+    background: #fff;
+}
+
+.field-card.is-captain {
+    border-left-color: var(--sc-gold);
+    box-shadow: 0 0 0 1px var(--sc-gold), 0 2px 8px rgba(217, 119, 6, 0.2);
+}
+.field-card.is-captain:hover {
+    box-shadow: 0 0 0 1px var(--sc-gold), 0 4px 16px rgba(217, 119, 6, 0.35);
+}
+.field-card.is-vc {
+    border-left-color: var(--accent-cyan);
+    box-shadow: 0 0 0 1px var(--accent-cyan), 0 2px 8px rgba(6, 182, 212, 0.2);
+}
+.field-card.is-vc:hover {
+    box-shadow: 0 0 0 1px var(--accent-cyan), 0 4px 16px rgba(6, 182, 212, 0.35);
+}
+
+/* Top row: name + role inline */
+.field-card .fc-top {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    min-height: 14px;
 }
 
 .field-card .fc-name {
-    font-size: 11px;
-    font-weight: 600;
-    color: #fff;
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #1e293b;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    line-height: 1.3;
-    padding-right: 20px;
+    flex: 1;
+    min-width: 0;
+    line-height: 1.25;
+    letter-spacing: -0.1px;
+}
+
+/* Inline role badge */
+.fc-role {
+    flex-shrink: 0;
+    font-size: 8px;
+    font-weight: 800;
+    padding: 2px 6px;
+    border-radius: 4px;
+    line-height: 1;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+}
+.fc-role-c {
+    background: var(--sc-gold);
+    color: #fff;
+}
+.fc-role-vc {
+    background: var(--accent-cyan);
+    color: #fff;
 }
 
 .field-card .fc-meta {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    margin-top: 2px;
+    gap: 4px;
 }
 
 .field-card .fc-team {
-    font-size: 9px;
-    color: rgba(255, 255, 255, 0.55);
-    font-weight: 600;
+    font-size: 8.5px;
+    color: #475569;
     text-transform: uppercase;
-}
-
-.field-card .fc-pos {
-    font-size: 8px;
-    color: rgba(255, 255, 255, 0.35);
-}
-
-.field-card .fc-salary {
-    font-size: 9px;
-    color: rgba(255, 255, 255, 0.55);
+    flex-shrink: 0;
+    font-weight: 700;
+    letter-spacing: 0.3px;
 }
 
 .field-card .fc-score {
-    position: absolute;
-    top: 5px;
-    right: 7px;
-    font-size: 11px;
-    font-weight: 700;
-    color: #fff;
-}
-
-/* Captain / VC badge */
-.field-card .fc-badge {
-    position: absolute;
-    top: -5px;
-    left: -5px;
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    font-size: 9px;
+    font-size: 12px;
     font-weight: 800;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #1a1a1a;
-    z-index: 3;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+    color: var(--accent-blue);
+    flex-shrink: 0;
+    margin-left: auto;
+    font-variant-numeric: tabular-nums;
 }
 
-.fc-badge-c {
-    background: var(--sc-gold);
-}
-
-.fc-badge-vc {
-    background: var(--accent-cyan);
+.field-card .fc-salary {
+    font-size: 8.5px;
+    color: #334155;
+    flex-shrink: 0;
+    font-weight: 500;
 }
 
 /* Bench sidebar */
 .field-bench {
-    width: 135px;
-    background: var(--bg-card);
+    width: 160px;
+    background: var(--bg-secondary);
     border-left: 1px solid var(--border);
     padding: 10px 8px;
     display: flex;
@@ -1084,63 +1287,92 @@ select.input {
     color: var(--accent-red);
 }
 
-/* Bench card */
+/* Bench card — clean glass style matching field cards */
 .bench-card {
-    background: var(--bg-secondary);
-    border-radius: 5px;
-    padding: 5px 7px;
-    border-left: 3px solid #444;
+    border-radius: 8px;
+    padding: 8px 24px 8px 10px;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--team-color, #94a3b8);
     position: relative;
-    transition: transform 0.1s;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    overflow: visible;
+    background: var(--bg-card);
+    color: var(--text-primary);
+    cursor: pointer;
 }
+/* No guernsey pattern */
+.bench-card::before { display: none; }
 
 .bench-card:hover {
-    transform: scale(1.03);
+    transform: translateY(-1px);
+    box-shadow: 0 3px 12px color-mix(in srgb, var(--team-color, #94a3b8) 20%, transparent),
+                0 1px 4px rgba(0,0,0,0.06);
+    border-left-width: 4px;
+    border-color: var(--border);
+}
+
+.bench-card .fc-top {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 16px;
 }
 
 .bench-card .fc-name {
-    font-size: 10px;
-    font-weight: 600;
+    font-size: 10.5px;
+    font-weight: 700;
     color: var(--text-primary);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    padding-right: 16px;
+    flex: 1;
+    min-width: 0;
+    line-height: 1.25;
+    letter-spacing: -0.1px;
 }
 
 .bench-card .fc-meta {
     display: flex;
-    justify-content: space-between;
-    margin-top: 1px;
+    align-items: center;
+    gap: 6px;
 }
 
 .bench-card .fc-team {
-    font-size: 8px;
+    font-size: 8.5px;
     color: var(--text-muted);
     text-transform: uppercase;
+    flex-shrink: 0;
+    font-weight: 700;
+    letter-spacing: 0.3px;
 }
 
 .bench-card .fc-salary {
-    font-size: 8px;
-    color: var(--text-muted);
+    font-size: 8.5px;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+    font-weight: 500;
 }
 
 .bench-card .fc-score {
-    position: absolute;
-    top: 4px;
-    right: 6px;
-    font-size: 10px;
-    font-weight: 700;
-    color: var(--text-primary);
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--accent-blue);
+    flex-shrink: 0;
+    margin-left: auto;
+    font-variant-numeric: tabular-nums;
 }
 
-/* Emergency badge */
+/* Emergency badge on bench card */
 .bench-card .fc-emg {
     position: absolute;
-    top: -3px;
-    right: -3px;
-    width: 15px;
-    height: 15px;
+    top: -4px;
+    right: -4px;
+    width: 16px;
+    height: 16px;
     border-radius: 50%;
     background: var(--accent-green);
     font-size: 8px;
@@ -1150,6 +1382,159 @@ select.input {
     align-items: center;
     justify-content: center;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    z-index: 5;
+}
+
+/* ——— Team Color Accents ——— */
+/* Team colors are applied via --team-color CSS variable on each card.
+   The left border and hover glow use this color automatically. */
+
+/* Team color dot indicator */
+.fc-team-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.08);
+}
+
+/* ——— Fixture Widget (sidebar) ——— */
+.fixture-widget.sidebar-fixture {
+    margin: 8px;
+    background: var(--bg-card);
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+    max-height: calc(100vh - 320px);
+    overflow-y: auto;
+}
+.sidebar-fixture .fixture-row {
+    padding: 5px 8px 1px;
+    gap: 4px;
+}
+.sidebar-fixture .fix-abbr {
+    font-size: 10px;
+}
+.sidebar-fixture .fix-dot {
+    width: 8px;
+    height: 8px;
+}
+.sidebar-fixture .fix-centre {
+    min-width: 55px;
+}
+.sidebar-fixture .fix-score {
+    font-size: 12px;
+}
+.sidebar-fixture .fix-time {
+    font-size: 9px;
+}
+.sidebar-fixture .fix-venue {
+    font-size: 8px;
+    padding: 0 8px 4px;
+}
+.sidebar-fixture .fixture-header {
+    padding: 8px 10px 6px;
+}
+.sidebar-fixture .fixture-title {
+    font-size: 11px;
+}
+.fixture-widget {
+    margin-top: 12px;
+    background: var(--bg-card);
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+}
+.fixture-header {
+    padding: 10px 14px 8px;
+    border-bottom: 1px solid var(--border);
+}
+.fixture-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.2px;
+}
+.fixture-list {
+    padding: 4px 0;
+}
+.fixture-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 7px 12px 2px;
+    gap: 8px;
+}
+.fixture-row.concluded {
+    opacity: 0.7;
+}
+.fixture-row.live {
+    background: rgba(59, 130, 246, 0.06);
+}
+.fix-team {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex: 1;
+}
+.fix-home {
+    justify-content: flex-end;
+}
+.fix-away {
+    justify-content: flex-start;
+}
+.fix-abbr {
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--text-primary);
+    letter-spacing: 0.3px;
+}
+.fix-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+}
+.fix-centre {
+    flex-shrink: 0;
+    min-width: 80px;
+    text-align: center;
+}
+.fix-score {
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--text-primary);
+    letter-spacing: -0.3px;
+    font-variant-numeric: tabular-nums;
+}
+.fix-score.fix-live {
+    color: var(--accent-blue);
+    animation: pulse-live-ring 1.5s ease-in-out infinite;
+}
+.fix-time {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+.fix-venue {
+    font-size: 9px;
+    color: var(--text-muted);
+    text-align: center;
+    padding: 0 12px 6px;
+    border-bottom: 1px solid var(--border);
+    letter-spacing: 0.2px;
+}
+.fix-venue:last-child {
+    border-bottom: none;
+}
+.fixture-empty {
+    padding: 16px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 12px;
 }
 
 /* ——— Salary Cap Bar ——— */
@@ -1184,19 +1569,20 @@ select.input {
 
 /* ——— Empty Slot Placeholder Cards ——— */
 .field-card-empty {
-    width: 112px;
-    padding: 8px 6px;
+    width: 130px;
+    padding: 6px 8px;
     border-radius: 8px;
-    border: 2px dashed var(--border-hover);
-    background: transparent;
+    border: 1.5px dashed rgba(255,255,255,0.5);
+    background: rgba(255,255,255,0.15);
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 4px;
-    min-height: 72px;
+    gap: 2px;
+    min-height: 36px;
     cursor: pointer;
-    transition: border-color 0.2s, background 0.2s;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    backdrop-filter: blur(4px);
 }
 .field-card-empty:hover {
     border-color: var(--sc-gold);
@@ -1251,26 +1637,25 @@ select.input {
 .fc-remove {
     position: absolute;
     top: -4px;
-    right: -4px;
-    width: 18px;
-    height: 18px;
+    left: -4px;
+    width: 16px;
+    height: 16px;
     border-radius: 50%;
-    background: var(--accent-red);
+    background: rgba(239, 68, 68, 0.9);
     color: white;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 700;
     border: none;
     cursor: pointer;
     display: none;
     align-items: center;
     justify-content: center;
-    line-height: 1;
     z-index: 5;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+    line-height: 1;
+    z-index: 6;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.35);
     padding: 0;
 }
-.field-card { position: relative; }
-.bench-card { position: relative; }
 .field-card:hover .fc-remove,
 .bench-card:hover .fc-remove {
     display: flex;
@@ -1278,26 +1663,39 @@ select.input {
 
 /* ——— Card Context Menu ——— */
 .fc-context-menu {
-    position: absolute;
-    top: 100%;
-    right: 0;
+    position: fixed;
     background: var(--bg-card);
     border: 1px solid var(--border-hover);
-    border-radius: 6px;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
-    z-index: 20;
-    min-width: 130px;
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.15), 0 2px 8px rgba(0,0,0,0.08);
+    z-index: 1000;
+    min-width: 180px;
     overflow: hidden;
+    animation: ctx-fade-in 0.1s ease-out;
+}
+@keyframes ctx-fade-in {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.fc-context-menu .ctx-header {
+    padding: 8px 12px 6px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
 }
 .fc-context-item {
-    padding: 8px 12px;
+    padding: 9px 14px;
     font-size: 12px;
     color: var(--text-primary);
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     white-space: nowrap;
+    transition: background 0.1s;
 }
 .fc-context-item:hover {
     background: var(--accent-blue);
@@ -1305,6 +1703,592 @@ select.input {
 }
 .fc-context-item.danger { color: var(--accent-red); }
 .fc-context-item.danger:hover { background: var(--accent-red); color: white; }
+.fc-context-sep {
+    height: 1px;
+    background: var(--border);
+    margin: 4px 0;
+}
+
+/* ——— Score View Toggle ——— */
+.score-view-toggle {
+    display: flex;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    margin-right: 8px;
+}
+.svt-btn {
+    padding: 4px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s;
+    border-right: 1px solid var(--border);
+}
+.svt-btn:last-child { border-right: none; }
+.svt-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+.svt-btn.active {
+    background: var(--accent-blue);
+    color: white;
+}
+
+/* ——— Icon Legend ——— */
+.icon-legend {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 10px;
+    color: var(--text-secondary);
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    white-space: nowrap;
+}
+
+.legend-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.legend-icon.named {
+    background: none;
+    color: #059669;
+    font-size: 12px;
+    width: auto;
+    height: auto;
+}
+
+.legend-icon.played {
+    background: #059669;
+    color: white;
+    font-size: 8px;
+}
+
+.legend-icon.playing {
+    background: var(--accent-blue);
+    width: 10px;
+    height: 10px;
+    box-shadow: 0 0 4px var(--accent-blue);
+}
+
+.legend-icon.not-playing {
+    background: var(--accent-red);
+    color: white;
+    font-size: 8px;
+}
+
+.legend-icon.injured {
+    background: var(--accent-orange);
+    color: white;
+    font-size: 8px;
+}
+
+.legend-icon.match-emergency {
+    background: var(--accent-orange);
+    color: white;
+    font-size: 7px;
+    font-weight: 800;
+}
+
+/* ——— Lineup Status Indicators ——— */
+/* Lineup status — top-left badge with solid bg for visibility over guernsey */
+.fc-lineup-status {
+    position: absolute;
+    top: 50%;
+    right: 6px;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    line-height: 1;
+    z-index: 4;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+}
+
+/* Bench card: lineup status goes bottom-right to avoid E badge clash */
+.bench-card .fc-lineup-status {
+    top: auto;
+    bottom: 4px;
+    right: 4px;
+    transform: none;
+    width: 14px;
+    height: 14px;
+}
+.bench-card .fc-lineup-status.named {
+    font-size: 12px;
+}
+.bench-card .fc-lineup-status.played {
+    font-size: 8px;
+}
+.bench-card .fc-lineup-status.playing {
+    width: 12px;
+    height: 12px;
+}
+.bench-card .fc-lineup-status.not-playing,
+.bench-card .fc-lineup-status.injured,
+.bench-card .fc-lineup-status.match-emergency {
+    font-size: 8px;
+}
+
+/* ✓ Named in squad — plain green tick, no circle */
+.fc-lineup-status.named {
+    background: none;
+    color: #059669;
+    font-size: 14px;
+    box-shadow: none;
+    width: auto;
+    height: auto;
+}
+
+/* ✓ Played/complete — filled green circle with white tick */
+.fc-lineup-status.played {
+    background: #059669;
+    color: white;
+    font-size: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+}
+
+/* ● Live — blue pulsing dot */
+.fc-lineup-status.playing {
+    width: 14px;
+    height: 14px;
+    background: var(--accent-blue);
+    color: transparent;
+    font-size: 0;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+    animation: pulse-live-ring 1.5s ease-in-out infinite;
+}
+@keyframes pulse-live-ring {
+    0%, 100% { box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3); }
+    50% { box-shadow: 0 0 0 5px rgba(59, 130, 246, 0.1); }
+}
+
+/* ✕ Not playing / DNP — red circle with white cross */
+.fc-lineup-status.not-playing {
+    background: var(--accent-red);
+    color: white;
+    font-size: 11px;
+    font-weight: 800;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+}
+
+/* ⚠ Injured — orange circle with white warning */
+.fc-lineup-status.injured {
+    background: var(--accent-orange);
+    color: white;
+    font-size: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+}
+
+/* E Match-day emergency — orange circle with white E */
+.fc-lineup-status.match-emergency {
+    background: var(--accent-orange);
+    color: white;
+    font-size: 9px;
+    font-weight: 800;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+}
+
+/* BYE status — slate pill, distinct from all other statuses */
+.fc-lineup-status.bye {
+    background: #475569;
+    color: #e2e8f0;
+    font-size: 8px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+}
+.bench-card .fc-lineup-status.bye {
+    font-size: 7px;
+}
+
+/* Dimmed card for bye players */
+.field-card.is-bye,
+.bench-card.is-bye {
+    opacity: 0.5;
+}
+.field-card.is-bye:hover,
+.bench-card.is-bye:hover {
+    opacity: 0.75;
+}
+
+/* Legend icon for bye */
+.legend-icon.bye {
+    background: #475569;
+    color: #e2e8f0;
+    font-size: 6px;
+    font-weight: 800;
+    letter-spacing: 0.3px;
+}
+
+/* Bye Impact Bar */
+.bye-impact-bar {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin: 6px 0;
+}
+.bye-bar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+}
+.bye-bar-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: #475569;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+.bye-bar-count {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+.bye-bar-track {
+    display: flex;
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+    background: var(--bg-input);
+}
+.bye-bar-fill-playing {
+    background: var(--accent-green);
+    transition: width 0.3s;
+}
+.bye-bar-fill-bye {
+    background: #475569;
+    transition: width 0.3s;
+}
+.bye-bar-detail {
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+.bye-detail-section {
+    margin-bottom: 4px;
+}
+.bye-player-tag {
+    display: inline-block;
+    background: rgba(71, 85, 105, 0.2);
+    padding: 1px 6px;
+    border-radius: 3px;
+    margin: 1px 2px;
+    font-size: 11px;
+}
+.bye-bench-tag {
+    display: inline-block;
+    background: rgba(16, 185, 129, 0.15);
+    padding: 1px 6px;
+    border-radius: 3px;
+    margin: 1px 2px;
+    font-size: 11px;
+    color: var(--accent-green);
+}
+.bye-gap-warning {
+    color: var(--accent-orange);
+    font-weight: 600;
+}
+
+/* --- Bye Round Planner --- */
+.bye-risk-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    margin-bottom: 16px;
+}
+.bye-risk-gauge {
+    text-align: center;
+    min-width: 100px;
+}
+.bye-risk-score {
+    font-size: 48px;
+    font-weight: 800;
+    line-height: 1;
+}
+.bye-risk-label {
+    font-size: 14px;
+    font-weight: 700;
+    margin-top: 4px;
+    color: var(--text-primary);
+}
+.bye-risk-sublabel {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+}
+.bye-risk-rounds {
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+/* Bye Matrix */
+.bye-matrix-scroll {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 16px;
+}
+.bye-matrix-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    white-space: nowrap;
+}
+.bye-matrix-table thead th {
+    background: var(--bg-secondary);
+    color: var(--accent-cyan);
+    padding: 8px 10px;
+    text-align: left;
+    font-weight: 600;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    border-bottom: 2px solid var(--border);
+}
+.bye-matrix-sticky {
+    position: sticky;
+    left: 0;
+    z-index: 3;
+    background: var(--bg-secondary);
+}
+.bye-matrix-table tbody td {
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--border);
+}
+.bye-matrix-name {
+    font-weight: 600;
+    color: var(--text-primary);
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.bye-matrix-team {
+    color: var(--text-secondary);
+    font-size: 11px;
+}
+.bye-matrix-pos {
+    color: var(--text-muted);
+    font-size: 11px;
+}
+.bye-matrix-rnd {
+    text-align: center;
+    min-width: 48px;
+}
+.bye-matrix-cell {
+    text-align: center;
+    font-size: 10px;
+    font-weight: 700;
+    border-radius: 3px;
+}
+.bye-cell-playing {
+    color: var(--accent-green);
+}
+.bye-cell-bye {
+    background: rgba(71, 85, 105, 0.25);
+    color: #94a3b8;
+}
+.bye-cell-injured {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--accent-red);
+}
+.bye-matrix-group td {
+    background: var(--bg-card);
+    font-weight: 700;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--accent-cyan);
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--border);
+}
+
+/* Round Summary Cards */
+.bye-summary-cards {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+.bye-summary-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    text-align: center;
+    min-width: 100px;
+    flex: 1;
+}
+.bye-summary-card.danger {
+    border-color: var(--accent-red);
+}
+.bye-summary-card.warning {
+    border-color: var(--accent-yellow);
+}
+.bye-summary-round {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+}
+.bye-summary-count {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--text-primary);
+    line-height: 1;
+}
+.bye-summary-count small {
+    font-size: 14px;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+.bye-summary-label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+}
+.bye-summary-badge {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: 3px;
+    letter-spacing: 0.5px;
+}
+.bye-summary-badge.ok {
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--accent-green);
+}
+.bye-summary-badge.warning {
+    background: rgba(245, 158, 11, 0.15);
+    color: var(--accent-yellow);
+}
+.bye-summary-badge.danger {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--accent-red);
+}
+.bye-summary-gaps {
+    margin-top: 6px;
+    font-size: 10px;
+    color: var(--accent-orange);
+}
+
+/* Bye Alert Banner */
+.bye-alert-banner {
+    background: rgba(71, 85, 105, 0.15);
+    border: 1px solid #475569;
+    border-radius: 8px;
+    padding: 8px 14px;
+    margin: 6px 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.bye-alert-content {
+    flex: 1;
+    font-size: 12px;
+    color: var(--text-primary);
+}
+.bye-alert-item {
+    margin: 2px 0;
+}
+.bye-alert-dismiss {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 18px;
+    cursor: pointer;
+    padding: 0 4px;
+    line-height: 1;
+}
+.bye-alert-dismiss:hover {
+    color: var(--text-primary);
+}
+
+/* Injury tooltip on card hover */
+.fc-injury-tooltip {
+    display: none;
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--accent-red);
+    color: white;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 9px;
+    white-space: nowrap;
+    z-index: 10;
+    margin-bottom: 4px;
+}
+.field-card:hover .fc-injury-tooltip,
+.bench-card:hover .fc-injury-tooltip {
+    display: block;
+}
+
+/* ——— Live Score Overlay on Cards ——— */
+/* Positioned at top-right inside the padding area, below remove button */
+.fc-live-overlay {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    pointer-events: none;
+    z-index: 3;
+}
+.fc-live-score {
+    display: inline-block;
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    background: rgba(34, 197, 94, 0.15);
+    color: var(--accent-green);
+}
+.fc-live-score.live {
+    background: rgba(59, 130, 246, 0.2);
+    color: var(--accent-blue);
+    animation: pulse-live 2s ease-in-out infinite;
+}
+.fc-live-score.complete {
+    background: rgba(34, 197, 94, 0.15);
+    color: var(--accent-green);
+}
+.fc-live-score.proj {
+    background: transparent;
+    color: var(--text-muted);
+    font-weight: 400;
+    font-size: 9px;
+}
+@keyframes pulse-live {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
 
 /* ——— Affordable / Over-budget Highlighting in Search ——— */
 .salary-affordable { color: var(--accent-green); }
@@ -1330,18 +2314,356 @@ select.input {
 }
 .pending-slot-banner button:hover { color: var(--text-primary); }
 
-/* Responsive — narrower cards on small screens */
+/* ——— Captain / Vice-Captain Picker ——— */
+.captain-picker {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 12px;
+    padding: 10px 16px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+
+.captain-picker-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.captain-picker-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.captain-picker-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 14px;
+    border: 2px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-card);
+    color: var(--text-primary);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+    min-width: 160px;
+}
+
+.captain-picker-btn:hover {
+    border-color: var(--border-hover);
+    background: var(--bg-input);
+}
+
+.captain-picker-btn.selecting {
+    border-color: var(--accent-yellow);
+    background: rgba(234, 179, 8, 0.1);
+    animation: pulse-border 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-border {
+    0%, 100% { border-color: var(--accent-yellow); }
+    50% { border-color: var(--sc-gold-dark); }
+}
+
+.captain-picker-btn.has-player.captain {
+    border-color: var(--sc-gold);
+}
+
+.captain-picker-btn.has-player.vc {
+    border-color: var(--accent-cyan);
+}
+
+.captain-picker-badge {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    font-size: 10px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.captain-picker-badge.cb-c {
+    background: var(--sc-gold);
+    color: #fff;
+}
+
+.captain-picker-badge.cb-vc {
+    background: var(--accent-cyan);
+    color: #fff;
+}
+
+.captain-picker-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.captain-picker-hint {
+    margin-left: auto;
+    font-size: 12px;
+    color: var(--accent-yellow);
+    animation: pulse-hint 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-hint {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* ——— Emergency Picker ——— */
+.captain-picker-divider {
+    width: 1px;
+    height: 28px;
+    background: var(--border);
+    margin: 0 4px;
+}
+
+.emergency-picker-group {
+    gap: 6px !important;
+}
+
+.emergency-slots {
+    display: flex;
+    gap: 4px;
+}
+
+.emg-slot {
+    display: inline-block;
+    padding: 3px 8px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.emg-slot.filled {
+    background: rgba(34, 197, 94, 0.1);
+    border-color: rgba(34, 197, 94, 0.3);
+    color: var(--accent-green);
+}
+
+.emg-slot.selecting {
+    border-color: var(--accent-green);
+    animation: pulse-border-green 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-border-green {
+    0%, 100% { border-color: var(--accent-green); }
+    50% { border-color: var(--border); }
+}
+
+/* Clickable bench cards in emergency mode */
+.bench-card.emg-selectable {
+    cursor: pointer;
+    outline: 2px solid transparent;
+    transition: outline-color 0.15s;
+}
+
+.bench-card.emg-selectable:hover {
+    outline-color: var(--accent-green);
+}
+
+/* ——— Live Scores Bar ——— */
+.live-scores-bar {
+    margin-bottom: 12px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.live-scores-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 16px;
+    cursor: pointer;
+}
+
+.live-scores-header:hover {
+    background: var(--bg-card);
+}
+
+.live-scores-title {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--accent-green);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.live-scores-title::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent-green);
+    animation: pulse-dot 2s ease-in-out infinite;
+}
+
+.live-scores-round {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.live-scores-total {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.live-scores-projected {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.live-scores-games {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-left: auto;
+}
+
+.live-scores-players {
+    padding: 0 8px 8px;
+}
+
+.live-scores-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+.live-scores-table thead th {
+    padding: 6px 8px;
+    text-align: left;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border);
+}
+
+.live-scores-table thead th.right {
+    text-align: right;
+}
+
+.live-scores-table tbody tr {
+    border-bottom: 1px solid rgba(45, 49, 64, 0.5);
+}
+
+.live-scores-table tbody tr:hover {
+    background: var(--bg-card);
+}
+
+.live-scores-table tbody td {
+    padding: 5px 8px;
+}
+
+.live-scores-table tbody td.right {
+    text-align: right;
+}
+
+.live-score-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-weight: 700;
+    font-size: 12px;
+}
+
+.live-score-badge.complete {
+    background: rgba(34, 197, 94, 0.15);
+    color: var(--accent-green);
+}
+
+.live-score-badge.in_progress {
+    background: rgba(6, 182, 212, 0.15);
+    color: var(--accent-cyan);
+}
+
+.live-score-badge.upcoming {
+    color: var(--text-muted);
+}
+
+.match-status-pill {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 10px;
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.match-status-pill.complete {
+    background: rgba(34, 197, 94, 0.15);
+    color: var(--accent-green);
+}
+
+.match-status-pill.in_progress {
+    background: rgba(6, 182, 212, 0.15);
+    color: var(--accent-cyan);
+}
+
+.match-status-pill.upcoming {
+    background: rgba(90, 97, 120, 0.15);
+    color: var(--text-muted);
+}
+
+/* Clickable cards in captain mode */
+.field-card.captain-selectable,
+.bench-card.captain-selectable {
+    cursor: pointer;
+    outline: 2px solid transparent;
+    transition: outline-color 0.15s, transform 0.1s;
+}
+
+.field-card.captain-selectable:hover,
+.bench-card.captain-selectable:hover {
+    outline-color: var(--accent-yellow);
+}
+
+/* Responsive — compact cards on small screens */
 @media (max-width: 1200px) {
     .field-card, .field-card-empty {
-        width: 95px;
+        width: 110px;
+        padding: 5px 6px;
     }
     .field-card .fc-name {
-        font-size: 10px;
+        font-size: 9px;
     }
     .field-card .fc-score {
         font-size: 10px;
     }
+    .field-card .fc-team,
+    .field-card .fc-salary {
+        font-size: 7.5px;
+    }
+    .bench-card .fc-name {
+        font-size: 9px;
+    }
+    .bench-card .fc-score {
+        font-size: 10px;
+    }
     .field-bench {
-        width: 115px;
+        width: 140px;
+    }
+    .search-sidebar {
+        width: 240px;
     }
 }

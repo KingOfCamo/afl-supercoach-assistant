@@ -122,10 +122,23 @@ const App = {
             indicator.title = `Connected to API at ${API_BASE || 'localhost'}`;
             overlay.style.display = 'none';
 
-            // Load team on first successful connection
+            // Show bye alerts
+            if (c.bye_alerts && c.bye_alerts.length) {
+                const banner = document.getElementById('bye-alert-banner');
+                const content = document.getElementById('bye-alert-content');
+                content.innerHTML = c.bye_alerts.map(a =>
+                    `<div class="bye-alert-item">&#9888; ${esc(a)}</div>`
+                ).join('');
+                banner.style.display = '';
+            }
+
+            // Load team + live scores on first successful connection
             if (!this._initialLoad) {
                 this._initialLoad = true;
                 this.Team.loadTeam();
+                this.Team.loadLiveScores();
+                this.Team.loadFixtures();
+                this.Team.startLiveRefresh();
             }
         } catch (e) {
             this.state.connected = false;
@@ -140,8 +153,9 @@ const App = {
         if (!this.state.connected) return;
 
         // Update nav
-        document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-        document.querySelector(`.nav-item[data-section="${name}"]`).classList.add('active');
+        document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
+        const tab = document.querySelector(`.nav-tab[data-section="${name}"]`);
+        if (tab) tab.classList.add('active');
 
         // Update sections
         document.querySelectorAll('.section').forEach(el => el.classList.remove('active'));
@@ -151,6 +165,7 @@ const App = {
 
         // Load data when switching sections
         if (name === 'dashboard') this.Dashboard.loadAll();
+        if (name === 'byes') this.Byes.loadAll();
     },
 
     // --- Team Builder ---
@@ -161,6 +176,12 @@ const App = {
         _lastTeamData: null,
         _pendingSlot: null,
         _contextMenu: null,
+        _captainMode: null, // null, 'captain', or 'vc'
+        _emergencyMode: false,
+        _emergencyPicks: [], // player_ids in order
+        _scoreView: 'last', // 'last', 'live', 'projected', 'average'
+        _liveScoresExpanded: false,
+        _liveRefreshInterval: null,
         SALARY_CAP: 10000000,
 
         switchView(view) {
@@ -213,12 +234,7 @@ const App = {
                     </div>`;
                 }
 
-                html += '<table class="data-table"><thead><tr>';
-                html += '<th>Player</th><th>Team</th><th>Pos</th><th class="right">Salary</th><th class="right">Avg</th><th></th>';
-                html += '</tr></thead><tbody>';
-
                 for (const p of data.players) {
-                    // Salary with affordability highlighting
                     const affordable = !p.salary || p.salary <= remaining;
                     const salaryClass = p.salary ? (affordable ? 'salary-affordable' : 'salary-over') : '';
                     const salaryStr = p.salary ? `$${p.salary.toLocaleString()}` : '-';
@@ -226,15 +242,12 @@ const App = {
 
                     let btnHtml;
                     if (p.is_on_team) {
-                        btnHtml = '<span style="color:var(--accent-green);">&#10003;</span>';
+                        btnHtml = '<span class="on-team-check">&#10003;</span>';
                     } else if (this._pendingSlot) {
-                        // Direct add to pending slot
                         btnHtml = `<button class="btn btn-sm btn-success" onclick="App.Team.addPlayer(${p.id}, '${this._pendingSlot}')">+ ${this._pendingSlot}</button>`;
                     } else {
-                        // Auto-assign with dropdown fallback
                         const autoSlot = this.autoAssignSlot(p.position || '');
-                        const autoLabel = autoSlot ? autoSlot : 'Full';
-                        btnHtml = `<div class="slot-picker" style="display:flex;gap:2px;">`;
+                        btnHtml = `<div style="display:flex;gap:2px;">`;
                         if (autoSlot) {
                             btnHtml += `<button class="btn btn-sm btn-success" onclick="App.Team.addPlayer(${p.id}, '${autoSlot}')" title="Auto: ${autoSlot}">+ Add</button>`;
                         }
@@ -242,17 +255,19 @@ const App = {
                         btnHtml += `</div>`;
                     }
 
-                    html += `<tr>`;
-                    html += `<td>${this._esc(p.name)}</td>`;
-                    html += `<td class="muted">${this._esc(p.team)}</td>`;
-                    html += `<td class="muted">${this._esc(p.position || '-')}</td>`;
-                    html += `<td class="right ${salaryClass}">${salaryStr}</td>`;
-                    html += `<td class="right">${avgStr}</td>`;
-                    html += `<td class="right">${btnHtml}</td>`;
-                    html += `</tr>`;
+                    html += `<div class="search-card">
+                        <div class="search-card-top">
+                            <div class="search-card-name">${this._esc(p.name)}</div>
+                            <div class="search-card-action">${btnHtml}</div>
+                        </div>
+                        <div class="search-card-meta">
+                            <span class="search-card-team">${this._esc(p.team)}</span>
+                            <span class="search-card-pos">${this._esc(p.position || '-')}</span>
+                            <span class="search-card-salary ${salaryClass}">${salaryStr}</span>
+                            <span class="search-card-avg">Avg ${avgStr}</span>
+                        </div>
+                    </div>`;
                 }
-
-                html += '</tbody></table>';
                 container.innerHTML = html;
             } catch (e) {
                 container.innerHTML = `<div class="empty-state">Error: ${e.message}</div>`;
@@ -371,14 +386,66 @@ const App = {
             event.stopPropagation();
             this.closeCardMenu();
 
-            const card = event.currentTarget;
+            const slot = this._lastTeamData
+                ? this._lastTeamData.slots.find(s => s.id === slotId)
+                : null;
+            const isBench = slot && slot.position_slot.startsWith('BENCH');
+            const playerName = slot ? slot.player_name : '';
+            const isCaptain = slot && slot.is_captain;
+            const isVC = slot && slot.is_vice_captain;
+
             let html = '<div class="fc-context-menu">';
-            html += `<div class="fc-context-item" onclick="App.Team.setCaptain(${playerId})">&#128081; Set Captain</div>`;
-            html += `<div class="fc-context-item" onclick="App.Team.setVC(${playerId})">&#127775; Set Vice Captain</div>`;
-            html += `<div class="fc-context-item danger" onclick="App.Team.removePlayer(${slotId})">&#10060; Remove</div>`;
+            html += `<div class="ctx-header">${esc(playerName)}</div>`;
+
+            // Captain / VC section
+            if (!isCaptain) {
+                html += `<div class="fc-context-item" onclick="App.Team.setCaptain(${playerId})">&#128081; Set Captain</div>`;
+            }
+            if (!isVC) {
+                html += `<div class="fc-context-item" onclick="App.Team.setVC(${playerId})">&#127775; Set Vice Captain</div>`;
+            }
+
+            // Emergency section (bench only)
+            if (isBench) {
+                html += '<div class="fc-context-sep"></div>';
+                const isEmg = slot && slot.is_emergency;
+                if (isEmg) {
+                    html += `<div class="fc-context-item" onclick="App.Team.quickRemoveEmergency(${playerId})">&#10006; Remove Emergency</div>`;
+                } else {
+                    html += `<div class="fc-context-item" onclick="App.Team.quickAddEmergency(${playerId})">&#127919; Set Emergency</div>`;
+                }
+            }
+
+            // Remove
+            html += '<div class="fc-context-sep"></div>';
+            html += `<div class="fc-context-item danger" onclick="App.Team.removePlayer(${slotId})">&#10060; Remove from team</div>`;
             html += '</div>';
-            card.insertAdjacentHTML('beforeend', html);
-            this._contextMenu = card.querySelector('.fc-context-menu');
+
+            // Append to body with fixed positioning
+            document.body.insertAdjacentHTML('beforeend', html);
+            this._contextMenu = document.body.querySelector('.fc-context-menu:last-child');
+
+            // Position near click, but keep on screen
+            const menu = this._contextMenu;
+            const mx = event.clientX;
+            const my = event.clientY;
+            const mw = menu.offsetWidth;
+            const mh = menu.offsetHeight;
+            const vw = window.innerWidth;
+            const vh = window.innerHeight;
+
+            let left = mx;
+            let top = my;
+            // Flip left if overflowing right
+            if (mx + mw > vw - 8) left = mx - mw;
+            // Flip up if overflowing bottom
+            if (my + mh > vh - 8) top = my - mh;
+            // Clamp
+            if (left < 4) left = 4;
+            if (top < 4) top = 4;
+
+            menu.style.left = left + 'px';
+            menu.style.top = top + 'px';
 
             setTimeout(() => {
                 document.addEventListener('click', this._contextCloseHandler = () => {
@@ -466,6 +533,600 @@ const App = {
             }
         },
 
+        // --- Captain/VC picker mode ---
+        toggleCaptainMode(mode) {
+            const captainBtn = document.getElementById('captain-btn');
+            const vcBtn = document.getElementById('vc-btn');
+            const hint = document.getElementById('captain-hint');
+
+            if (this._captainMode === mode) {
+                // Toggle off
+                this._captainMode = null;
+                captainBtn.classList.remove('selecting');
+                vcBtn.classList.remove('selecting');
+                hint.style.display = 'none';
+            } else {
+                this._captainMode = mode;
+                captainBtn.classList.toggle('selecting', mode === 'captain');
+                vcBtn.classList.toggle('selecting', mode === 'vc');
+                hint.style.display = '';
+            }
+            // Re-render to add/remove clickable indicators
+            if (this._lastTeamData) this.renderTeam(this._lastTeamData);
+        },
+
+        handleCardClick(playerId) {
+            if (!this._captainMode) return;
+            if (this._captainMode === 'captain') {
+                this.setCaptain(playerId);
+            } else {
+                this.setVC(playerId);
+            }
+            // Exit captain mode after selection
+            this._captainMode = null;
+            document.getElementById('captain-btn').classList.remove('selecting');
+            document.getElementById('vc-btn').classList.remove('selecting');
+            document.getElementById('captain-hint').style.display = 'none';
+        },
+
+        _updateCaptainPicker(data) {
+            const captainSlot = data.slots.find(s => s.is_captain);
+            const vcSlot = data.slots.find(s => s.is_vice_captain);
+            const captainBtn = document.getElementById('captain-btn');
+            const vcBtn = document.getElementById('vc-btn');
+            const captainName = document.getElementById('captain-name');
+            const vcName = document.getElementById('vc-name');
+
+            if (captainSlot) {
+                captainName.textContent = captainSlot.player_name;
+                captainBtn.classList.add('has-player');
+            } else {
+                captainName.textContent = 'Select Captain';
+                captainBtn.classList.remove('has-player');
+            }
+
+            if (vcSlot) {
+                vcName.textContent = vcSlot.player_name;
+                vcBtn.classList.add('has-player');
+            } else {
+                vcName.textContent = 'Select Vice Captain';
+                vcBtn.classList.remove('has-player');
+            }
+        },
+
+        // --- Score View Toggle ---
+        setScoreView(view) {
+            this._scoreView = view;
+            document.querySelectorAll('.svt-btn').forEach(b => {
+                b.classList.toggle('active', b.dataset.view === view);
+            });
+            // Re-render cards with new score view
+            if (this._lastTeamData) this.renderTeam(this._lastTeamData);
+        },
+
+        _getDisplayScore(s) {
+            const live = this._liveData;
+            if (this._scoreView === 'live' && live && live.players) {
+                const lp = live.players.find(p => p.player_id === s.player_id);
+                if (lp && lp.live_score != null) return lp.live_score;
+                if (lp && lp.projected_final != null) return '~' + Math.round(lp.projected_final);
+            }
+            if (this._scoreView === 'projected') {
+                if (s.projected_score != null) return s.projected_score;
+                if (s.sc_avg != null) return '~' + s.sc_avg;
+                return '-';
+            }
+            if (this._scoreView === 'average') {
+                return s.season_avg != null ? s.season_avg : (s.sc_avg != null ? s.sc_avg : '-');
+            }
+            // Default: last score
+            return s.last_score != null ? s.last_score : (s.sc_avg != null ? s.sc_avg : 0);
+        },
+
+        _getLineupStatus(s) {
+            // Priority 0: Bye round — team not playing this round
+            if (s.is_on_bye) {
+                return {
+                    status: 'bye',
+                    label: 'BYE',
+                    tooltip: `${s.team} has a bye this round`,
+                };
+            }
+
+            // Priority 1: Injury (but still check if they played below)
+            const isInjured = !!s.injury;
+
+            // Priority 2: Live match data — played/playing overrides lineup status
+            // Only use live data when there's a real score (> 0), since the API
+            // returns 0 for players whose game hasn't started yet
+            if (this._liveData && this._liveData.players) {
+                const lp = this._liveData.players.find(p => p.player_id === s.player_id);
+                if (lp) {
+                    if (lp.match_status === 'complete' && lp.live_score != null && lp.live_score > 0) {
+                        return { status: 'played', label: '✓', tooltip: `Played — ${lp.live_score}pts` };
+                    }
+                    if (lp.match_status === 'in_progress' && lp.live_score != null && lp.live_score > 0) {
+                        return { status: 'playing', label: '●', tooltip: `Live — ${lp.live_score}pts` };
+                    }
+                    if (lp.match_status === 'complete' && (lp.live_score == null || lp.live_score === 0)) {
+                        return { status: 'not-playing', label: '✕', tooltip: 'Did not play (DNP)' };
+                    }
+                }
+            }
+
+            // Priority 3: Injury (only if no live match result yet)
+            if (isInjured) {
+                return {
+                    status: 'injured',
+                    label: '⚠',
+                    tooltip: `${s.injury.type || 'Injured'} — ${s.injury.return || 'TBD'}`,
+                };
+            }
+
+            // Priority 4: AFL.com.au lineup announcement (pre-game only)
+            // Plain tick (no circle) for named players
+            if (s.lineup_status === 'NAMED') {
+                const opp = s.lineup_opponent ? ` v ${s.lineup_opponent}` : '';
+                return {
+                    status: 'named',
+                    label: '✓',
+                    tooltip: `Named${opp}${s.lineup_position ? ' (' + s.lineup_position + ')' : ''}`,
+                };
+            }
+            if (s.lineup_status === 'EMERGENCY') {
+                return {
+                    status: 'match-emergency',
+                    label: 'E',
+                    tooltip: `Named as match-day emergency`,
+                };
+            }
+
+            return null; // No lineup data yet
+        },
+
+        // --- Live Scores ---
+        _liveData: null,
+
+        async loadLiveScores() {
+            const round = App.state.config ? App.state.config.current_round : 1;
+            try {
+                const res = await authFetch(`${API_BASE}/api/analytics/live?round=${round}`);
+                const data = await res.json();
+                this._liveData = data;
+                this._renderLiveScores(data);
+                this._overlayLiveScoresOnCards(data);
+            } catch (e) {
+                console.error('Failed to load live scores:', e);
+            }
+        },
+
+        _overlayLiveScoresOnCards(data) {
+            // Overlay live scores onto field & bench cards
+            if (!data.players) return;
+            const scoreMap = {};
+            for (const p of data.players) {
+                scoreMap[p.player_id] = p;
+            }
+
+            // Update field cards
+            document.querySelectorAll('.field-card[data-pid]').forEach(card => {
+                const pid = parseInt(card.dataset.pid);
+                const p = scoreMap[pid];
+                if (!p) return;
+                let overlay = card.querySelector('.fc-live-overlay');
+                if (!overlay) {
+                    overlay = document.createElement('div');
+                    overlay.className = 'fc-live-overlay';
+                    card.appendChild(overlay);
+                }
+                if (p.live_score != null) {
+                    const cls = p.match_status === 'complete' ? 'complete' :
+                        p.match_status === 'in_progress' ? 'live' : '';
+                    const display = p.is_captain ? p.live_score * 2 : p.live_score;
+                    overlay.innerHTML = `<span class="fc-live-score ${cls}">${display}</span>`;
+                    overlay.style.display = '';
+                } else if (p.match_status === 'upcoming' && p.projected_final != null) {
+                    overlay.innerHTML = `<span class="fc-live-score proj">~${Math.round(p.projected_final)}</span>`;
+                    overlay.style.display = '';
+                } else {
+                    overlay.style.display = 'none';
+                }
+            });
+
+            // Update bench cards
+            document.querySelectorAll('.bench-card[data-pid]').forEach(card => {
+                const pid = parseInt(card.dataset.pid);
+                const p = scoreMap[pid];
+                if (!p) return;
+                let overlay = card.querySelector('.fc-live-overlay');
+                if (!overlay) {
+                    overlay = document.createElement('div');
+                    overlay.className = 'fc-live-overlay';
+                    card.appendChild(overlay);
+                }
+                if (p.live_score != null) {
+                    const cls = p.match_status === 'complete' ? 'complete' :
+                        p.match_status === 'in_progress' ? 'live' : '';
+                    overlay.innerHTML = `<span class="fc-live-score ${cls}">${p.live_score}</span>`;
+                    overlay.style.display = '';
+                } else {
+                    overlay.style.display = 'none';
+                }
+            });
+        },
+
+        toggleLiveExpanded() {
+            this._liveScoresExpanded = !this._liveScoresExpanded;
+            document.getElementById('live-scores-players').style.display =
+                this._liveScoresExpanded ? 'block' : 'none';
+        },
+
+        _renderLiveScores(data) {
+            document.getElementById('live-round-label').textContent = `Round ${data.round}`;
+            document.getElementById('live-total').textContent = data.total_live_score || 0;
+            document.getElementById('live-projected').textContent =
+                `Proj: ${data.projected_total ? data.projected_total.toFixed(0) : '-'}`;
+
+            const parts = [];
+            if (data.games_complete > 0) parts.push(`${data.games_complete} complete`);
+            if (data.games_in_progress > 0) parts.push(`${data.games_in_progress} live`);
+            if (data.games_upcoming > 0) parts.push(`${data.games_upcoming} upcoming`);
+            document.getElementById('live-games-status').textContent = parts.join(' | ');
+
+            // Player breakdown table
+            const container = document.getElementById('live-scores-players');
+            if (!data.players || !data.players.length) {
+                container.innerHTML = '<div class="empty-state" style="padding:12px">No team loaded</div>';
+                return;
+            }
+
+            // Sort: on-field first, then by score descending
+            const sorted = [...data.players].sort((a, b) => {
+                const aOnField = !a.position_slot.startsWith('BENCH') && !a.is_emergency;
+                const bOnField = !b.position_slot.startsWith('BENCH') && !b.is_emergency;
+                if (aOnField !== bOnField) return aOnField ? -1 : 1;
+                return (b.live_score || 0) - (a.live_score || 0);
+            });
+
+            let html = '<table class="live-scores-table"><thead><tr>';
+            html += '<th>Player</th><th>Slot</th><th>Opp</th>';
+            html += '<th class="right">Score</th><th class="right">Proj</th><th>Status</th>';
+            html += '</tr></thead><tbody>';
+
+            for (const p of sorted) {
+                const badges = [];
+                if (p.is_captain) badges.push('<span style="color:var(--sc-gold);font-weight:700">C</span>');
+                if (p.is_vice_captain) badges.push('<span style="color:var(--accent-cyan);font-weight:700">VC</span>');
+
+                const scoreClass = p.match_status === 'complete' ? 'complete' :
+                    p.match_status === 'in_progress' ? 'in_progress' : 'upcoming';
+                const scoreVal = p.live_score != null ? p.live_score : '-';
+                const displayScore = p.is_captain && p.live_score != null ?
+                    `${p.live_score} (${p.live_score * 2})` : scoreVal;
+                const projVal = p.projected_final != null ? p.projected_final.toFixed(0) : '-';
+
+                html += '<tr>';
+                html += `<td>${esc(p.player_name)} ${badges.join(' ')}</td>`;
+                html += `<td style="color:var(--text-muted)">${p.position_slot}</td>`;
+                html += `<td style="color:var(--text-muted)">${esc(p.opponent || '-')}</td>`;
+                html += `<td class="right"><span class="live-score-badge ${scoreClass}">${displayScore}</span></td>`;
+                html += `<td class="right" style="color:var(--text-secondary)">${projVal}</td>`;
+                html += `<td><span class="match-status-pill ${scoreClass}">${p.match_status.replace('_', ' ')}</span></td>`;
+                html += '</tr>';
+            }
+
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        },
+
+        async syncAndRefreshScores() {
+            const btn = document.getElementById('live-sync-btn');
+            btn.textContent = 'Syncing...';
+            btn.disabled = true;
+            try {
+                // Foreground sync: players + scores (waits for completion)
+                const scoreSync = authFetch(`${API_BASE}/api/sync/scores`, {method: 'POST'});
+                // Lineups in parallel (foreground)
+                const lineupSync = authFetch(`${API_BASE}/api/sync/trigger?source=afl_lineups&wait=true`, {method: 'POST'});
+
+                const [scoreResult, lineupResult] = await Promise.all([scoreSync, lineupSync]);
+                const scoreData = await scoreResult.json().catch(() => ({}));
+                console.log('Score sync result:', scoreData);
+
+                // Now load the updated data
+                await Promise.all([
+                    this.loadLiveScores(),
+                    this.loadTeam(),
+                ]);
+            } catch (e) {
+                console.error('Score sync failed:', e);
+            } finally {
+                btn.textContent = 'Sync';
+                btn.disabled = false;
+            }
+        },
+
+        startLiveRefresh() {
+            if (this._liveRefreshInterval) return;
+            // Refresh every 30 seconds for live game updates
+            this._liveRefreshInterval = setInterval(() => {
+                if (App.state.connected) this.loadLiveScores();
+            }, 30000);
+        },
+
+        stopLiveRefresh() {
+            if (this._liveRefreshInterval) {
+                clearInterval(this._liveRefreshInterval);
+                this._liveRefreshInterval = null;
+            }
+        },
+
+        // --- Fixtures ---
+        _fixtureData: null,
+
+        async loadFixtures() {
+            const round = App.state.config ? App.state.config.current_round : 1;
+            try {
+                const res = await authFetch(`${API_BASE}/api/fixtures/round?round_num=${round}`);
+                const data = await res.json();
+                this._fixtureData = data;
+                this._renderFixtureWidget();
+            } catch (e) {
+                console.error('Failed to load fixtures:', e);
+            }
+        },
+
+        _renderFixtureWidget() {
+            const container = document.getElementById('fixture-widget');
+            if (!container || !this._fixtureData || !this._fixtureData.matches) return;
+
+            const matches = this._fixtureData.matches;
+            if (!matches.length) {
+                container.innerHTML = '<div class="fixture-empty">No fixtures available</div>';
+                return;
+            }
+
+            let html = '<div class="fixture-header">';
+            html += `<span class="fixture-title">Round ${this._fixtureData.round} Fixtures</span>`;
+            html += '</div>';
+            html += '<div class="fixture-list">';
+
+            for (const m of matches) {
+                const homeSlug = (m.home_team || '').toLowerCase().replace(/\s+/g, '-');
+                const awaySlug = (m.away_team || '').toLowerCase().replace(/\s+/g, '-');
+                const homeColor = TEAM_COLORS[m.home_team] || '#444';
+                const awayColor = TEAM_COLORS[m.away_team] || '#444';
+                const homeAbbr = TEAM_ABBREVS[m.home_team] || m.home_abbr || '???';
+                const awayAbbr = TEAM_ABBREVS[m.away_team] || m.away_abbr || '???';
+
+                // Format date/time
+                let timeStr = '';
+                if (m.date) {
+                    const d = new Date(m.date);
+                    const day = d.toLocaleDateString('en-AU', { weekday: 'short' });
+                    const time = d.toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit' });
+                    timeStr = `${day} ${time}`;
+                }
+
+                // Match status
+                let statusClass = '';
+                let scoreHtml = '';
+                if (m.status === 'CONCLUDED') {
+                    statusClass = 'concluded';
+                    scoreHtml = `<span class="fix-score">${m.home_score ?? '-'} - ${m.away_score ?? '-'}</span>`;
+                } else if (m.status === 'LIVE' || m.status === 'PLAYING') {
+                    statusClass = 'live';
+                    scoreHtml = `<span class="fix-score fix-live">${m.home_score ?? 0} - ${m.away_score ?? 0}</span>`;
+                } else {
+                    scoreHtml = `<span class="fix-time">${timeStr || 'TBC'}</span>`;
+                }
+
+                html += `<div class="fixture-row ${statusClass}">`;
+                html += `<div class="fix-team fix-home" style="--tc:${homeColor}">`;
+                html += `<span class="fix-abbr">${homeAbbr}</span>`;
+                html += `<span class="fix-dot" style="background:${homeColor}"></span>`;
+                html += `</div>`;
+                html += `<div class="fix-centre">${scoreHtml}</div>`;
+                html += `<div class="fix-team fix-away" style="--tc:${awayColor}">`;
+                html += `<span class="fix-dot" style="background:${awayColor}"></span>`;
+                html += `<span class="fix-abbr">${awayAbbr}</span>`;
+                html += `</div>`;
+                html += `</div>`;
+
+                // Venue line
+                html += `<div class="fix-venue">${m.venue || ''}</div>`;
+            }
+
+            html += '</div>';
+            container.innerHTML = html;
+        },
+
+        // --- Emergency selection ---
+        toggleEmergencyMode() {
+            this._emergencyMode = !this._emergencyMode;
+            const btn = document.getElementById('emg-edit-btn');
+            const hint = document.getElementById('captain-hint');
+
+            if (this._emergencyMode) {
+                // Exit captain mode if active
+                this._captainMode = null;
+                document.getElementById('captain-btn').classList.remove('selecting');
+                document.getElementById('vc-btn').classList.remove('selecting');
+
+                // Load current emergencies
+                this._emergencyPicks = [];
+                if (this._lastTeamData) {
+                    const emgSlots = this._lastTeamData.slots
+                        .filter(s => s.is_emergency && s.emergency_order)
+                        .sort((a, b) => a.emergency_order - b.emergency_order);
+                    this._emergencyPicks = emgSlots.map(s => s.player_id);
+                }
+
+                btn.textContent = 'Done';
+                btn.style.background = 'var(--accent-green)';
+                btn.style.color = 'white';
+                btn.style.borderColor = 'var(--accent-green)';
+                hint.textContent = 'Click bench players to set E1-E4 (click again to remove)';
+                hint.style.display = '';
+                this._updateEmergencySlotDisplay();
+            } else {
+                // Save emergencies
+                this._saveEmergencies();
+                btn.textContent = 'Edit';
+                btn.style.background = '';
+                btn.style.color = '';
+                btn.style.borderColor = '';
+                hint.style.display = 'none';
+            }
+
+            // Re-render bench cards with selectable state
+            if (this._lastTeamData) this.renderTeam(this._lastTeamData);
+        },
+
+        handleBenchEmergencyClick(playerId) {
+            if (!this._emergencyMode) return;
+
+            const idx = this._emergencyPicks.indexOf(playerId);
+            if (idx !== -1) {
+                // Remove this pick
+                this._emergencyPicks.splice(idx, 1);
+            } else if (this._emergencyPicks.length < 4) {
+                // Check position coverage — SuperCoach requires one per line
+                const player = this._lastTeamData.slots.find(s => s.player_id === playerId);
+                if (!player) return;
+
+                const playerPos = (player.position || '').split('/')[0].toUpperCase();
+                const existingPositions = this._emergencyPicks.map(pid => {
+                    const s = this._lastTeamData.slots.find(sl => sl.player_id === pid);
+                    return s ? (s.position || '').split('/')[0].toUpperCase() : '';
+                });
+
+                // Allow if this position line isn't already covered, OR if dual-position
+                if (existingPositions.includes(playerPos)) {
+                    // Check if player has a second position
+                    const positions = (player.position || '').split('/').map(p => p.trim().toUpperCase());
+                    const hasUncovered = positions.some(p => !existingPositions.includes(p));
+                    if (!hasUncovered) {
+                        alert(`You already have an emergency for ${playerPos}. SuperCoach requires one per position line.`);
+                        return;
+                    }
+                }
+
+                this._emergencyPicks.push(playerId);
+            } else {
+                alert('Maximum 4 emergencies. Remove one first.');
+                return;
+            }
+
+            this._updateEmergencySlotDisplay();
+            if (this._lastTeamData) this.renderTeam(this._lastTeamData);
+        },
+
+        _updateEmergencySlotDisplay() {
+            for (let i = 1; i <= 4; i++) {
+                const el = document.getElementById(`emg-slot-${i}`);
+                if (!el) continue;
+
+                if (i <= this._emergencyPicks.length) {
+                    const pid = this._emergencyPicks[i - 1];
+                    const slot = this._lastTeamData
+                        ? this._lastTeamData.slots.find(s => s.player_id === pid)
+                        : null;
+                    const name = slot ? slot.player_name.split(' ').pop() : `#${pid}`;
+                    const pos = slot ? (slot.position || '').split('/')[0] : '';
+                    el.textContent = `E${i}: ${name} (${pos})`;
+                    el.className = 'emg-slot filled';
+                } else {
+                    el.textContent = `E${i}: -`;
+                    el.className = this._emergencyMode ? 'emg-slot selecting' : 'emg-slot';
+                }
+            }
+        },
+
+        async _saveEmergencies() {
+            if (!this._emergencyPicks.length && !this._lastTeamData?.slots.some(s => s.is_emergency)) {
+                return; // Nothing to save
+            }
+            try {
+                await authFetch(`${API_BASE}/api/team/emergency`, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({emergencies: this._emergencyPicks}),
+                });
+                this.loadTeam();
+            } catch (e) {
+                alert('Error saving emergencies: ' + e.message);
+            }
+        },
+
+        async quickAddEmergency(playerId) {
+            this.closeCardMenu();
+            // Get current emergencies
+            const emgSlots = (this._lastTeamData?.slots || [])
+                .filter(s => s.is_emergency && s.emergency_order)
+                .sort((a, b) => a.emergency_order - b.emergency_order);
+            const picks = emgSlots.map(s => s.player_id);
+
+            if (picks.length >= 4) {
+                alert('Already have 4 emergencies. Remove one first.');
+                return;
+            }
+            picks.push(playerId);
+
+            try {
+                await authFetch(`${API_BASE}/api/team/emergency`, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({emergencies: picks}),
+                });
+                this.loadTeam();
+            } catch (e) {
+                alert('Error: ' + e.message);
+            }
+        },
+
+        async quickRemoveEmergency(playerId) {
+            this.closeCardMenu();
+            const emgSlots = (this._lastTeamData?.slots || [])
+                .filter(s => s.is_emergency && s.emergency_order)
+                .sort((a, b) => a.emergency_order - b.emergency_order);
+            const picks = emgSlots.map(s => s.player_id).filter(id => id !== playerId);
+
+            try {
+                await authFetch(`${API_BASE}/api/team/emergency`, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({emergencies: picks}),
+                });
+                this.loadTeam();
+            } catch (e) {
+                alert('Error: ' + e.message);
+            }
+        },
+
+        _updateEmergencyPickerFromData(data) {
+            // Update emergency slot display from team data
+            const emgSlots = data.slots
+                .filter(s => s.is_emergency && s.emergency_order)
+                .sort((a, b) => a.emergency_order - b.emergency_order);
+
+            for (let i = 1; i <= 4; i++) {
+                const el = document.getElementById(`emg-slot-${i}`);
+                if (!el) continue;
+
+                if (i <= emgSlots.length) {
+                    const s = emgSlots[i - 1];
+                    const name = s.player_name.split(' ').pop();
+                    const pos = (s.position || '').split('/')[0];
+                    el.textContent = `E${i}: ${name} (${pos})`;
+                    el.className = 'emg-slot filled';
+                } else {
+                    el.textContent = `E${i}: -`;
+                    el.className = 'emg-slot';
+                }
+            }
+        },
+
         async clearTeam() {
             if (!confirm('Clear your entire team?')) return;
             try {
@@ -507,8 +1168,62 @@ const App = {
                 const res = await authFetch(`${API_BASE}/api/team`);
                 const data = await res.json();
                 this.renderTeam(data);
+                this.loadByeImpact();
             } catch (e) {
                 console.error('Failed to load team:', e);
+            }
+        },
+
+        async loadByeImpact() {
+            const round = App.state.config ? App.state.config.current_round : 1;
+            const bar = document.getElementById('bye-impact-bar');
+            try {
+                const res = await authFetch(`${API_BASE}/api/analytics/bye-impact?round=${round}`);
+                const data = await res.json();
+                if (!data.has_byes || data.on_bye === 0) {
+                    bar.style.display = 'none';
+                    return;
+                }
+                bar.style.display = '';
+
+                const total = data.playing + data.on_bye;
+                const playPct = total > 0 ? (data.playing / total * 100) : 100;
+                const byePct = total > 0 ? (data.on_bye / total * 100) : 0;
+
+                document.getElementById('bye-bar-label').textContent = `Round ${data.round} Bye Impact`;
+                document.getElementById('bye-bar-count').textContent =
+                    `${data.playing}/${total} playing | ${data.on_bye} on BYE`;
+
+                document.getElementById('bye-bar-fill-playing').style.width = `${playPct}%`;
+                document.getElementById('bye-bar-fill-bye').style.width = `${byePct}%`;
+
+                // Detail section
+                let detail = '';
+                if (data.bye_players && data.bye_players.length) {
+                    detail += '<div class="bye-detail-section"><strong>On Bye:</strong> ';
+                    detail += data.bye_players.map(p =>
+                        `<span class="bye-player-tag">${this._esc(p.player_name)} <small>(${this._esc(p.position_slot)})</small></span>`
+                    ).join(' ');
+                    detail += '</div>';
+                }
+                if (data.available_bench && data.available_bench.length) {
+                    detail += '<div class="bye-detail-section"><strong>Bench Available:</strong> ';
+                    detail += data.available_bench.map(p =>
+                        `<span class="bye-bench-tag">${this._esc(p.player_name)}${p.is_emergency ? ' (E)' : ''}</span>`
+                    ).join(' ');
+                    detail += '</div>';
+                }
+                if (data.coverage_gaps && data.coverage_gaps.length) {
+                    detail += '<div class="bye-detail-section bye-gap-warning">';
+                    detail += data.coverage_gaps.map(g => `<span>&#9888; ${this._esc(g)}</span>`).join(' ');
+                    detail += '</div>';
+                }
+                const detailEl = document.getElementById('bye-bar-detail');
+                detailEl.innerHTML = detail;
+                detailEl.style.display = detail ? '' : 'none';
+            } catch (e) {
+                bar.style.display = 'none';
+                console.error('Failed to load bye impact:', e);
             }
         },
 
@@ -545,6 +1260,10 @@ const App = {
 
             this._renderListView(data);
             this._renderFieldView(data);
+            this._updateCaptainPicker(data);
+            if (!this._emergencyMode) {
+                this._updateEmergencyPickerFromData(data);
+            }
         },
 
         _renderListView(data) {
@@ -570,18 +1289,27 @@ const App = {
                     const badges = [];
                     if (s.is_captain) badges.push('<span class="badge badge-captain">C</span>');
                     if (s.is_vice_captain) badges.push('<span class="badge badge-vc">VC</span>');
-                    if (s.is_emergency) badges.push('<span class="badge badge-emg">EMG</span>');
+                    if (s.is_emergency && s.emergency_order) {
+                        badges.push(`<span class="badge badge-emg">E${s.emergency_order}</span>`);
+                    } else if (s.is_emergency) {
+                        badges.push('<span class="badge badge-emg">EMG</span>');
+                    }
 
                     const salary = s.salary ? `$${s.salary.toLocaleString()}` : '';
+                    const score = s.last_score != null ? s.last_score : (s.sc_avg != null ? s.sc_avg : '-');
 
                     html += `<div class="team-slot">`;
                     html += `<span class="slot-label">${s.position_slot}</span>`;
                     html += `<span class="player-name">${this._esc(s.player_name)}${badges.join('')}</span>`;
                     html += `<span class="player-team">${this._esc(s.team)}</span>`;
+                    html += `<span class="player-score" style="font-size:12px;font-weight:700;width:40px;text-align:right;margin-right:4px">${score}</span>`;
                     html += `<span class="player-salary">${salary}</span>`;
+                    const cActive = s.is_captain ? ' style="background:var(--sc-gold);color:#1a1a1a;border-color:var(--sc-gold);opacity:1"' : '';
+                    const vcActive = s.is_vice_captain ? ' style="background:var(--accent-cyan);color:#1a1a1a;border-color:var(--accent-cyan);opacity:1"' : '';
+
                     html += `<div class="actions">`;
-                    html += `<button class="btn btn-sm" onclick="App.Team.setCaptain(${s.player_id})" title="Set Captain">C</button>`;
-                    html += `<button class="btn btn-sm" onclick="App.Team.setVC(${s.player_id})" title="Set Vice Captain">VC</button>`;
+                    html += `<button class="btn btn-sm"${cActive} onclick="App.Team.setCaptain(${s.player_id})" title="Set Captain">C</button>`;
+                    html += `<button class="btn btn-sm"${vcActive} onclick="App.Team.setVC(${s.player_id})" title="Set Vice Captain">VC</button>`;
                     html += `<button class="btn btn-sm btn-danger" onclick="App.Team.removePlayer(${s.id})" title="Remove">x</button>`;
                     html += `</div>`;
                     html += `</div>`;
@@ -697,34 +1425,62 @@ const App = {
             html += '</div>'; // .field-bench
 
             html += '</div>'; // .field-view-wrapper
+
             container.innerHTML = html;
+
+            // Render fixtures if already loaded (widget is in sidebar)
+            if (this._fixtureData) {
+                this._renderFixtureWidget();
+            }
         },
 
         _renderFieldCard(s) {
             const teamColor = TEAM_COLORS[s.team] || '#444';
             const teamAbbr = TEAM_ABBREVS[s.team] || (s.team || '').substring(0, 3).toUpperCase();
             const salary = s.salary ? `$${(s.salary / 1000).toFixed(0)}k` : '';
-            const score = s.last_score != null ? s.last_score : (s.sc_avg != null ? s.sc_avg : 0);
+            const score = this._getDisplayScore(s);
             const displayName = this._abbreviateName(s.player_name);
-            const posLabel = s.position ? s.position.replace('/', ' | ') : '';
 
-            let html = `<div class="field-card" style="border-left-color:${teamColor}" oncontextmenu="App.Team.showCardMenu(event, ${s.id}, ${s.player_id})">`;
+            const selectable = this._captainMode ? ' captain-selectable' : '';
+            const clickHandler = this._captainMode
+                ? `onclick="App.Team.handleCardClick(${s.player_id})"`
+                : '';
 
-            // Remove button (top-right, shown on hover)
+            // Card classes for captain/vc styling + team guernsey
+            const teamSlug = (s.team || '').toLowerCase().replace(/\s+/g, '-');
+            let cardClass = `field-card team-${teamSlug}${selectable}`;
+            if (s.is_captain) cardClass += ' is-captain';
+            if (s.is_vice_captain) cardClass += ' is-vc';
+            if (s.is_on_bye) cardClass += ' is-bye';
+
+            let html = `<div class="${cardClass}" data-pid="${s.player_id}" style="--team-color:${teamColor}" oncontextmenu="App.Team.showCardMenu(event, ${s.id}, ${s.player_id})" ${clickHandler}>`;
+
+            // Remove button
             html += `<button class="fc-remove" onclick="event.stopPropagation();App.Team.removePlayer(${s.id})" title="Remove">&times;</button>`;
 
-            if (s.is_captain) {
-                html += '<div class="fc-badge fc-badge-c">C</div>';
-            } else if (s.is_vice_captain) {
-                html += '<div class="fc-badge fc-badge-vc">VC</div>';
-            }
-
-            html += `<div class="fc-score">${score}</div>`;
+            // Top row: name + role badge inline
+            html += '<div class="fc-top">';
             html += `<div class="fc-name">${this._esc(displayName)}</div>`;
+            if (s.is_captain) html += '<span class="fc-role fc-role-c">C</span>';
+            else if (s.is_vice_captain) html += '<span class="fc-role fc-role-vc">VC</span>';
+            html += '</div>';
+
+            // Bottom: team dot + team abbr + score + salary
             html += '<div class="fc-meta">';
-            html += `<span class="fc-team">${this._esc(teamAbbr)}${posLabel ? ' | ' + posLabel : ''}</span>`;
+            html += `<span class="fc-team-dot" style="background:${teamColor}"></span>`;
+            html += `<span class="fc-team">${this._esc(teamAbbr)}</span>`;
+            html += `<span class="fc-score">${score}</span>`;
             html += `<span class="fc-salary">${salary}</span>`;
             html += '</div>';
+
+            // Lineup status indicator
+            const lineup = this._getLineupStatus(s);
+            if (lineup) {
+                html += `<div class="fc-lineup-status ${lineup.status}" title="${this._esc(lineup.tooltip)}">${lineup.label}</div>`;
+                if (lineup.status === 'injured') {
+                    html += `<div class="fc-injury-tooltip">${this._esc(lineup.tooltip)}</div>`;
+                }
+            }
 
             html += '</div>';
             return html;
@@ -734,24 +1490,57 @@ const App = {
             const teamColor = TEAM_COLORS[s.team] || '#444';
             const teamAbbr = TEAM_ABBREVS[s.team] || (s.team || '').substring(0, 3).toUpperCase();
             const salary = s.salary ? `$${(s.salary / 1000).toFixed(0)}k` : '';
-            const score = s.last_score != null ? s.last_score : (s.sc_avg != null ? s.sc_avg : 0);
+            const score = this._getDisplayScore(s);
             const displayName = this._abbreviateName(s.player_name);
 
-            let html = `<div class="bench-card" style="border-left-color:${teamColor}" oncontextmenu="App.Team.showCardMenu(event, ${s.id}, ${s.player_id})">`;
+            let selectable = this._captainMode ? ' captain-selectable' : '';
+            let clickHandler = this._captainMode
+                ? `onclick="App.Team.handleCardClick(${s.player_id})"`
+                : '';
 
-            // Remove button (top-right, shown on hover)
-            html += `<button class="fc-remove" onclick="event.stopPropagation();App.Team.removePlayer(${s.id})" title="Remove">&times;</button>`;
-
-            if (s.is_emergency) {
-                html += '<div class="fc-emg">E</div>';
+            if (this._emergencyMode) {
+                selectable = ' emg-selectable';
+                clickHandler = `onclick="App.Team.handleBenchEmergencyClick(${s.player_id})"`;
             }
 
-            html += `<div class="fc-score">${score}</div>`;
+            const teamSlug = (s.team || '').toLowerCase().replace(/\s+/g, '-');
+            const byeClass = s.is_on_bye ? ' is-bye' : '';
+            let html = `<div class="bench-card team-${teamSlug}${selectable}${byeClass}" data-pid="${s.player_id}" style="--team-color:${teamColor}" oncontextmenu="App.Team.showCardMenu(event, ${s.id}, ${s.player_id})" ${clickHandler}>`;
+
+            html += `<button class="fc-remove" onclick="event.stopPropagation();App.Team.removePlayer(${s.id})" title="Remove">&times;</button>`;
+
+            // Emergency badge
+            const emgIdx = this._emergencyMode
+                ? this._emergencyPicks.indexOf(s.player_id)
+                : -1;
+            if (emgIdx !== -1) {
+                html += `<div class="fc-emg">E${emgIdx + 1}</div>`;
+            } else if (!this._emergencyMode && s.is_emergency && s.emergency_order) {
+                html += `<div class="fc-emg">E${s.emergency_order}</div>`;
+            }
+
+            // Top row: name + role
+            html += '<div class="fc-top">';
             html += `<div class="fc-name">${this._esc(displayName)}</div>`;
+            if (s.is_captain) html += '<span class="fc-role fc-role-c">C</span>';
+            else if (s.is_vice_captain) html += '<span class="fc-role fc-role-vc">VC</span>';
+            html += '</div>';
+
             html += '<div class="fc-meta">';
+            html += `<span class="fc-team-dot" style="background:${teamColor}"></span>`;
             html += `<span class="fc-team">${this._esc(teamAbbr)}</span>`;
+            html += `<span class="fc-score">${score}</span>`;
             html += `<span class="fc-salary">${salary}</span>`;
             html += '</div>';
+
+            // Lineup status
+            const lineup = this._getLineupStatus(s);
+            if (lineup) {
+                html += `<div class="fc-lineup-status ${lineup.status}" title="${this._esc(lineup.tooltip)}">${lineup.label}</div>`;
+                if (lineup.status === 'injured') {
+                    html += `<div class="fc-injury-tooltip">${this._esc(lineup.tooltip)}</div>`;
+                }
+            }
 
             html += '</div>';
             return html;
@@ -899,6 +1688,23 @@ const App = {
                 html += `<span class="trade-detail">${esc(inp.player_name)} (${esc(inp.team)}) -- $${inp.current_price.toLocaleString()} | Proj: ${inp.projected_score.toFixed(0)}</span>`;
                 html += `</div>`;
                 html += `<div class="trade-stats">Net: $${rec.net_price.toLocaleString()} | Projected gain: +${rec.projected_gain.toFixed(0)} pts</div>`;
+
+                // Bye impact
+                if (rec.bye_impact) {
+                    const bi = rec.bye_impact;
+                    let byeHtml = '';
+                    if (bi.net_field_change > 0) {
+                        byeHtml = `<span style="color:var(--accent-green)">+${bi.net_field_change} field player${bi.net_field_change > 1 ? 's' : ''} in R${bi.rounds_gained.join(', R')}</span>`;
+                    } else if (bi.net_field_change < 0) {
+                        byeHtml = `<span style="color:var(--accent-red)">${bi.net_field_change} field player in R${bi.rounds_lost.join(', R')}</span>`;
+                    } else if (bi.rounds_gained.length > 0) {
+                        byeHtml = `<span style="color:var(--text-secondary)">Bye swap: gain R${bi.rounds_gained.join(',')} / lose R${bi.rounds_lost.join(',')}</span>`;
+                    } else {
+                        byeHtml = `<span style="color:var(--text-muted)">No bye change</span>`;
+                    }
+                    html += `<div class="trade-stats" style="font-size:11px">Bye impact: ${byeHtml}</div>`;
+                }
+
                 html += `</div>`;
             });
 
@@ -909,18 +1715,35 @@ const App = {
             document.getElementById('stat-injuries').textContent = data.team_injuries.length;
 
             const container = document.getElementById('injuries-display');
-            if (!data.team_injuries.length) {
-                container.innerHTML = '<div class="empty-state" style="color:var(--accent-green)">No injuries on your team!</div>';
-                return;
+            let html = '';
+
+            // My team injuries
+            if (data.team_injuries.length) {
+                html += '<h4 style="margin:0 0 8px;font-size:13px;color:#64748b">My Team</h4>';
+                data.team_injuries.forEach(inj => {
+                    html += `<div class="injury-alert" style="display:block;margin-bottom:8px;padding:10px">`;
+                    html += `<strong>${esc(inj.player_name)}</strong> (${esc(inj.team)}) — `;
+                    html += `${esc(inj.injury_type || 'Unknown')} | Return: ${esc(inj.estimated_return || 'TBC')}`;
+                    html += `</div>`;
+                });
+            } else {
+                html += '<div class="empty-state" style="color:var(--accent-green);margin-bottom:12px">No injuries on your team!</div>';
             }
 
-            let html = '';
-            data.team_injuries.forEach(inj => {
-                html += `<div class="injury-alert" style="display:block;margin-bottom:8px;padding:10px">`;
-                html += `<strong>${esc(inj.player_name)}</strong> (${esc(inj.team)}) -- `;
-                html += `${esc(inj.injury_type || 'Unknown')} | Return: ${esc(inj.estimated_return || 'TBC')}`;
-                html += `</div>`;
-            });
+            // All league injuries (collapsible, scrollable)
+            if (data.all_injuries && data.all_injuries.length) {
+                html += `<details style="margin-top:12px">`;
+                html += `<summary style="cursor:pointer;font-size:13px;color:#64748b;font-weight:600;margin-bottom:8px">All League Injuries (${data.all_injuries.length})</summary>`;
+                html += `<div style="max-height:400px;overflow-y:auto;padding-right:4px">`;
+                data.all_injuries.forEach(inj => {
+                    html += `<div class="injury-alert" style="display:block;margin-bottom:6px;padding:8px;font-size:12px">`;
+                    html += `<strong>${esc(inj.player_name)}</strong> (${esc(inj.team)}) — `;
+                    html += `${esc(inj.injury_type || 'Unknown')} | Return: ${esc(inj.estimated_return || 'TBC')}`;
+                    html += `</div>`;
+                });
+                html += `</div></details>`;
+            }
+
             container.innerHTML = html;
         },
     },
@@ -1006,6 +1829,134 @@ const App = {
                 }
             }
             log.scrollTop = log.scrollHeight;
+        },
+    },
+
+    // --- Bye Round Planner ---
+    Byes: {
+        _data: null,
+
+        async loadAll() {
+            try {
+                const res = await authFetch(`${API_BASE}/api/analytics/bye-planner`);
+                const data = await res.json();
+                this._data = data;
+                this.render(data);
+            } catch (e) {
+                console.error('Failed to load bye planner:', e);
+                document.getElementById('bye-risk-summary').innerHTML =
+                    '<div class="empty-state">Failed to load bye data</div>';
+            }
+        },
+
+        render(data) {
+            this.renderRiskScore(data.bye_risk_score, data.bye_rounds);
+            this.renderMatrix(data.players, data.bye_rounds);
+            this.renderRoundSummaries(data.round_summaries, data.bye_rounds);
+        },
+
+        renderRiskScore(score, byeRounds) {
+            const container = document.getElementById('bye-risk-summary');
+            if (!byeRounds || !byeRounds.length) {
+                container.innerHTML = '<div class="empty-state">No bye rounds found. Sync fixture data first.</div>';
+                return;
+            }
+
+            const color = score >= 70 ? 'var(--accent-green)' :
+                          score >= 40 ? 'var(--accent-yellow)' : 'var(--accent-red)';
+            const label = score >= 70 ? 'Well Prepared' :
+                          score >= 40 ? 'Some Risk' : 'High Risk';
+
+            let html = '<div class="bye-risk-card">';
+            html += '<div class="bye-risk-gauge">';
+            html += `<div class="bye-risk-score" style="color:${color}">${score}</div>`;
+            html += `<div class="bye-risk-label">${esc(label)}</div>`;
+            html += '<div class="bye-risk-sublabel">Bye Readiness Score</div>';
+            html += '</div>';
+            html += `<div class="bye-risk-rounds">Bye rounds: ${byeRounds.join(', ')}</div>`;
+            html += '</div>';
+            container.innerHTML = html;
+        },
+
+        renderMatrix(players, byeRounds) {
+            const container = document.getElementById('bye-matrix');
+            if (!players || !players.length || !byeRounds || !byeRounds.length) {
+                container.innerHTML = '<div class="empty-state">Import your team to see bye coverage matrix</div>';
+                return;
+            }
+
+            // Separate on-field vs bench
+            const onField = players.filter(p => p.is_on_field);
+            const bench = players.filter(p => !p.is_on_field);
+
+            let html = '<div class="bye-matrix-scroll"><table class="bye-matrix-table">';
+
+            // Header row
+            html += '<thead><tr>';
+            html += '<th class="bye-matrix-sticky">Player</th>';
+            html += '<th>Team</th>';
+            html += '<th>Pos</th>';
+            for (const rnd of byeRounds) {
+                html += `<th class="bye-matrix-rnd">R${rnd}</th>`;
+            }
+            html += '</tr></thead><tbody>';
+
+            // Render grouped rows
+            const renderGroup = (group, label) => {
+                html += `<tr class="bye-matrix-group"><td colspan="${3 + byeRounds.length}">${esc(label)}</td></tr>`;
+                for (const p of group) {
+                    html += '<tr>';
+                    html += `<td class="bye-matrix-sticky bye-matrix-name">${esc(p.player_name)}</td>`;
+                    html += `<td class="bye-matrix-team">${esc(p.team)}</td>`;
+                    html += `<td class="bye-matrix-pos">${esc(p.position || '-')}</td>`;
+                    for (const rnd of byeRounds) {
+                        const status = p.round_status[String(rnd)] || 'playing';
+                        const cls = status === 'bye' ? 'bye-cell-bye' :
+                                    status === 'injured' ? 'bye-cell-injured' : 'bye-cell-playing';
+                        const icon = status === 'bye' ? 'BYE' :
+                                     status === 'injured' ? '&#9888;' : '&#10003;';
+                        html += `<td class="bye-matrix-cell ${cls}">${icon}</td>`;
+                    }
+                    html += '</tr>';
+                }
+            };
+
+            renderGroup(onField, 'On Field');
+            renderGroup(bench, 'Bench');
+
+            html += '</tbody></table></div>';
+            container.innerHTML = html;
+        },
+
+        renderRoundSummaries(summaries, byeRounds) {
+            const container = document.getElementById('bye-round-summaries');
+            if (!byeRounds || !byeRounds.length) {
+                container.innerHTML = '';
+                return;
+            }
+
+            let html = '<div class="bye-summary-cards">';
+            for (const rnd of byeRounds) {
+                const s = summaries[String(rnd)];
+                if (!s) continue;
+
+                const statusClass = s.danger ? 'danger' : s.warning ? 'warning' : 'ok';
+                const statusLabel = s.danger ? 'DANGER' : s.warning ? 'WARNING' : 'OK';
+
+                html += `<div class="bye-summary-card ${statusClass}">`;
+                html += `<div class="bye-summary-round">Round ${rnd}</div>`;
+                html += `<div class="bye-summary-count">${s.playing}<small>/${s.playing + s.on_bye}</small></div>`;
+                html += `<div class="bye-summary-label">playing</div>`;
+                html += `<div class="bye-summary-badge ${statusClass}">${statusLabel}</div>`;
+                if (s.coverage_gaps && s.coverage_gaps.length) {
+                    html += '<div class="bye-summary-gaps">';
+                    s.coverage_gaps.forEach(g => { html += `<small>${esc(g)}</small>`; });
+                    html += '</div>';
+                }
+                html += '</div>';
+            }
+            html += '</div>';
+            container.innerHTML = html;
         },
     },
 };
