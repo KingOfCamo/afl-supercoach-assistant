@@ -162,13 +162,15 @@ async def lifespan(app: FastAPI):
     async def _initial_sync():
         """Run all sync tasks once on startup after a short delay."""
         await asyncio.sleep(10)  # Let the server finish starting
-        logger.info("Running initial data sync...")
+        print("[STARTUP] Running initial data sync...", flush=True)
         from src.sync.tasks import sync_all
         try:
             await sync_all()
-            logger.info("Initial data sync complete")
+            print("[STARTUP] Initial data sync complete", flush=True)
         except Exception as e:
-            logger.error("Initial data sync failed: %s", e)
+            print(f"[STARTUP] Initial data sync FAILED: {e}", flush=True)
+            import traceback
+            traceback.print_exc()
 
     asyncio.create_task(_initial_sync())
 
