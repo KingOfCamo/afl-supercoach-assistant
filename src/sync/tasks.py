@@ -229,16 +229,9 @@ async def sync_afl_lineups() -> None:
     config = get_config()
     count = 0
 
-    # Auto-detect current round from fixture data instead of stale config
+    # Use config.current_round (manually maintained) — detect_current_round
+    # can return stale values if fixture completion flags aren't updated
     round_num = config.current_round
-    try:
-        from src.models.database import get_session as _gs
-        from src.analytics.byes import detect_current_round
-        _s = _gs()
-        round_num = detect_current_round(_s, config.season)
-        _s.close()
-    except Exception:
-        pass
     print(f"[LINEUP] season={config.season} round={round_num}", flush=True)
 
     # Source 1: FootyWire (server-rendered HTML, always works)
