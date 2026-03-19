@@ -1274,15 +1274,11 @@ const App = {
                     return s ? (s.position || '').split('/')[0].toUpperCase() : '';
                 });
 
-                // Allow if this position line isn't already covered, OR if dual-position
-                if (existingPositions.includes(playerPos)) {
-                    // Check if player has a second position
-                    const positions = (player.position || '').split('/').map(p => p.trim().toUpperCase());
-                    const hasUncovered = positions.some(p => !existingPositions.includes(p));
-                    if (!hasUncovered) {
-                        alert(`You already have an emergency for ${playerPos}. SuperCoach requires one per position line.`);
-                        return;
-                    }
+                // SuperCoach 2026: max 2 emergencies per position line
+                const posCount = existingPositions.filter(p => p === playerPos).length;
+                if (posCount >= 2) {
+                    alert(`Maximum 2 emergencies per position line. You already have ${posCount} for ${playerPos}.`);
+                    return;
                 }
 
                 this._emergencyPicks.push(playerId);

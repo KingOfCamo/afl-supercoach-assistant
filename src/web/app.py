@@ -26,6 +26,31 @@ async def lifespan(app: FastAPI):
     """Initialize DB and start background sync scheduler on startup."""
     init_db()
 
+    # Derive bye rounds from existing fixture data if not yet populated
+    try:
+        from src.models.database import ByeRound, Fixture, get_session as _gs
+        from src.analytics.byes import derive_bye_rounds
+        from src.utils.config import get_config as _gc
+        from sqlalchemy import select, func
+
+        _session = _gs()
+        try:
+            _cfg = _gc()
+            bye_count = _session.execute(
+                select(func.count(ByeRound.id)).where(ByeRound.season == _cfg.season)
+            ).scalar() or 0
+            fixture_count = _session.execute(
+                select(func.count(Fixture.id)).where(Fixture.season == _cfg.season)
+            ).scalar() or 0
+
+            if bye_count == 0 and fixture_count > 0:
+                count = derive_bye_rounds(_session, _cfg.season)
+                logger.info("Auto-derived %d bye entries from %d fixtures on startup", count, fixture_count)
+        finally:
+            _session.close()
+    except Exception as e:
+        logger.warning("Could not auto-derive bye rounds on startup: %s", e)
+
     # Start the data sync scheduler
     from src.sync.scheduler import get_scheduler
     from src.sync.tasks import (
