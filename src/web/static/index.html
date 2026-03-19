@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SuperCoach AI Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
@@ -29,7 +32,7 @@
         <!-- Top Navigation Bar -->
         <header class="top-nav">
             <div class="top-nav-left">
-                <span class="top-nav-brand">SuperCoach AI</span>
+                <span class="top-nav-brand">SC<span class="brand-accent">AI</span></span>
                 <nav class="top-nav-links">
                     <a class="nav-tab active" data-section="home" onclick="App.showSection('home')">HOME</a>
                     <a class="nav-tab" data-section="team" onclick="App.showSection('team')">MY TEAM</a>
@@ -51,47 +54,43 @@
         <!-- Main content -->
         <main class="main-content">
 
-            <!-- Bye Alert Banner -->
-            <div class="bye-alert-banner" id="bye-alert-banner" style="display:none">
-                <div class="bye-alert-content" id="bye-alert-content"></div>
-                <button class="bye-alert-dismiss" onclick="document.getElementById('bye-alert-banner').style.display='none'">&times;</button>
+            <!-- Compact Bye Banner -->
+            <div class="bye-banner" id="bye-alert-banner" style="display:none">
+                <span class="bye-banner-text" id="bye-alert-content"></span>
+                <button class="bye-banner-dismiss" onclick="this.parentElement.style.display='none'">&times;</button>
             </div>
 
             <!-- SECTION: Home -->
             <div id="section-home" class="section active">
-                <div class="section-inner" style="max-width:800px">
-                    <div class="home-header">
-                        <h2 class="section-title">Home</h2>
-                        <span class="home-round" id="home-round">Round -</span>
-                    </div>
-
-                    <!-- Briefing Summary -->
-                    <div class="home-card" id="home-briefing">
-                        <div class="home-card-header">
-                            <h3>Weekly Briefing</h3>
-                            <button class="btn btn-sm" onclick="App.showSection('briefing')">Read Full Briefing</button>
-                        </div>
-                        <div id="home-briefing-summary" class="home-briefing-summary">
-                            <div class="empty-state">Generate your briefing to see a summary here</div>
+                <div class="section-inner home-grid">
+                    <!-- Left: Briefing -->
+                    <div class="home-briefing">
+                        <div class="home-card">
+                            <div class="home-card-header">
+                                <h3>Weekly Briefing</h3>
+                                <button class="btn btn-sm" onclick="App.showSection('briefing')">Full Briefing &rarr;</button>
+                            </div>
+                            <div id="home-briefing-summary" class="home-briefing-summary">
+                                <div class="empty-state">Generate your briefing to see a summary here</div>
+                            </div>
                         </div>
                     </div>
-
-                    <!-- Quick Actions -->
-                    <div class="home-card">
-                        <h3>Quick Actions</h3>
-                        <div class="home-quick-actions">
-                            <button class="home-action-btn" onclick="App.showSection('warroom')">Trade War Room</button>
-                            <button class="home-action-btn" onclick="App.showSection('team')">Manage My Team</button>
-                            <button class="home-action-btn" onclick="App.Team.syncAndRefreshScores()">Sync Data</button>
-                            <button class="home-action-btn" onclick="App.showSection('cows')">Cash Cows</button>
+                    <!-- Right: Status + Actions + Fixtures -->
+                    <div class="home-sidebar">
+                        <div class="home-card">
+                            <h3>This Round <span class="home-round" id="home-round"></span></h3>
+                            <div id="home-round-glance" class="home-round-glance">
+                                <div class="empty-state">Sync to load round data</div>
+                            </div>
                         </div>
-                    </div>
-
-                    <!-- Round at a Glance -->
-                    <div class="home-card">
-                        <h3>This Round</h3>
-                        <div id="home-round-glance" class="home-round-glance">
-                            <div class="empty-state">Sync to load round data</div>
+                        <div class="home-card">
+                            <h3>Quick Actions</h3>
+                            <div class="home-quick-actions">
+                                <button class="home-action-btn" onclick="App.showSection('warroom')">Trade War Room</button>
+                                <button class="home-action-btn" onclick="App.showSection('team')">My Team</button>
+                                <button class="home-action-btn" onclick="App.showSection('cows')">Cash Cows</button>
+                                <button class="home-action-btn" onclick="App.showSection('compare')">Compare</button>
+                            </div>
                         </div>
                     </div>
                 </div>
