@@ -130,6 +130,16 @@ def get_team(user: dict = Depends(get_current_user)) -> dict:
                 )
             ).scalar_one_or_none()
 
+            # Check if player's team has a bye this round
+            from src.models.database import ByeRound
+            bye = session.execute(
+                select(ByeRound).where(
+                    ByeRound.season == config.season,
+                    ByeRound.round == config.current_round,
+                    ByeRound.team == player.team,
+                )
+            ).scalar_one_or_none()
+
             salary = (latest.price if latest and latest.price else None) or (
                 dfs.salary if dfs else None
             )
@@ -160,6 +170,7 @@ def get_team(user: dict = Depends(get_current_user)) -> dict:
                 "lineup_status": lineup.status if lineup else None,
                 "lineup_position": lineup.match_position if lineup else None,
                 "lineup_opponent": lineup.opponent if lineup else None,
+                "is_on_bye": bye is not None,
             })
 
         return {

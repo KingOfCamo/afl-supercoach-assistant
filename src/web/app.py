@@ -32,6 +32,7 @@ async def lifespan(app: FastAPI):
         sync_afl_lineups,
         sync_afl_news_injuries,
         sync_aflcomau_injuries,
+        sync_bye_rounds,
         sync_fanfooty,
         sync_footywire_injuries,
         sync_footywire_scores,
@@ -95,6 +96,12 @@ async def lifespan(app: FastAPI):
         "interval", hours=4,
         id="afl_news_injuries",
         name="AFL News Injuries",
+    )
+    scheduler.add_job(
+        sync_bye_rounds,
+        "interval", hours=6,
+        id="bye_rounds",
+        name="Bye Round Derivation",
     )
 
     scheduler.start()
@@ -205,11 +212,44 @@ def create_app() -> FastAPI:
         from src.utils.config import get_config
 
         config = get_config()
+
+        # Generate bye alerts
+        bye_alerts = []
+        try:
+            from src.models.database import ByeRound, get_session as _get_session
+            from sqlalchemy import select, func
+
+            session = _get_session()
+            try:
+                # Check if upcoming rounds (current +1, +2) have byes
+                for offset in (0, 1, 2):
+                    rnd = config.current_round + offset
+                    bye_count = session.execute(
+                        select(func.count(ByeRound.id)).where(
+                            ByeRound.season == config.season,
+                            ByeRound.round == rnd,
+                        )
+                    ).scalar() or 0
+                    if bye_count > 0 and offset > 0:
+                        bye_alerts.append(
+                            f"Bye round in {offset} round{'s' if offset > 1 else ''} "
+                            f"(Round {rnd}) — {bye_count} teams on bye"
+                        )
+                    elif bye_count > 0 and offset == 0:
+                        bye_alerts.append(
+                            f"This is a bye round — {bye_count} teams on bye"
+                        )
+            finally:
+                session.close()
+        except Exception:
+            pass  # Bye table may not exist yet
+
         return {
             "season": config.season,
             "current_round": config.current_round,
             "trades_remaining": config.trades_remaining,
             "boosts_remaining": config.boosts_remaining,
+            "bye_alerts": bye_alerts,
         }
 
     # --- Static pages ---

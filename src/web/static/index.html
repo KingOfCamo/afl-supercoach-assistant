@@ -34,6 +34,7 @@
                     <a class="nav-tab active" data-section="team" onclick="App.showSection('team')">MY TEAM</a>
                     <a class="nav-tab" data-section="dashboard" onclick="App.showSection('dashboard')">DASHBOARD</a>
                     <a class="nav-tab" data-section="ai" onclick="App.showSection('ai')">AI INSIGHTS</a>
+                    <a class="nav-tab" data-section="byes" onclick="App.showSection('byes')">BYE PLANNER</a>
                 </nav>
             </div>
             <div class="top-nav-right">
@@ -48,6 +49,12 @@
 
         <!-- Main content -->
         <main class="main-content">
+
+            <!-- Bye Alert Banner -->
+            <div class="bye-alert-banner" id="bye-alert-banner" style="display:none">
+                <div class="bye-alert-content" id="bye-alert-content"></div>
+                <button class="bye-alert-dismiss" onclick="document.getElementById('bye-alert-banner').style.display='none'">&times;</button>
+            </div>
 
             <!-- SECTION: Team Builder -->
             <div id="section-team" class="section active">
@@ -98,6 +105,7 @@
                         <span class="legend-item"><span class="legend-icon not-playing">&#10005;</span> DNP</span>
                         <span class="legend-item"><span class="legend-icon injured">&#9888;</span> Injured</span>
                         <span class="legend-item"><span class="legend-icon match-emergency">E</span> Emergency</span>
+                        <span class="legend-item"><span class="legend-icon bye">BYE</span> Bye</span>
                     </div>
                     <div class="toolbar-spacer"></div>
                     <div class="team-view-tabs">
@@ -137,6 +145,19 @@
                     <div class="captain-picker-hint" id="captain-hint" style="display:none;">
                         Click a player card to assign
                     </div>
+                </div>
+
+                <!-- Bye Impact Bar (hidden when no byes) -->
+                <div class="bye-impact-bar" id="bye-impact-bar" style="display:none">
+                    <div class="bye-bar-header">
+                        <span class="bye-bar-label" id="bye-bar-label"></span>
+                        <span class="bye-bar-count" id="bye-bar-count"></span>
+                    </div>
+                    <div class="bye-bar-track">
+                        <div class="bye-bar-fill-playing" id="bye-bar-fill-playing"></div>
+                        <div class="bye-bar-fill-bye" id="bye-bar-fill-bye"></div>
+                    </div>
+                    <div class="bye-bar-detail" id="bye-bar-detail" style="display:none"></div>
                 </div>
 
                 <!-- Live Scores Bar (collapsed) -->
@@ -272,6 +293,34 @@
                                 <button class="btn btn-primary" onclick="App.AI.sendChat()">Send</button>
                             </div>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION: Bye Round Planner -->
+            <div id="section-byes" class="section">
+                <div class="section-inner">
+                    <h2 class="section-title">Bye Round Planner</h2>
+
+                    <!-- Risk Score -->
+                    <div class="bye-risk-summary" id="bye-risk-summary">
+                        <div class="loading"><div class="spinner"></div><div>Analyzing bye readiness...</div></div>
+                    </div>
+
+                    <!-- Coverage Matrix -->
+                    <h3 class="subsection-title">Coverage Matrix</h3>
+                    <div class="bye-matrix-wrapper" id="bye-matrix">
+                        <div class="loading"><div class="spinner"></div><div>Loading bye data...</div></div>
+                    </div>
+
+                    <!-- Round Summaries -->
+                    <h3 class="subsection-title">Round Summaries</h3>
+                    <div id="bye-round-summaries"></div>
+
+                    <!-- Trade Suggestions -->
+                    <h3 class="subsection-title">Bye-Improving Trades</h3>
+                    <div id="bye-trade-suggestions">
+                        <div class="empty-state">Trade suggestions will appear once bye data is loaded</div>
                     </div>
                 </div>
             </div>

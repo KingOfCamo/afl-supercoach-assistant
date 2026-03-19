@@ -165,3 +165,35 @@ def get_injuries(user: dict = Depends(get_current_user)) -> dict:
         }
     finally:
         session.close()
+
+
+@router.get("/bye-impact")
+def get_bye_impact_endpoint(
+    round_num: int = Query(None, alias="round"),
+    user: dict = Depends(get_current_user),
+) -> dict:
+    """Get bye round impact analysis for the user's team."""
+    from src.analytics.byes import get_bye_impact
+
+    config = get_config()
+    r = round_num or config.current_round
+    session = get_session()
+    try:
+        return get_bye_impact(session, user["user_id"], config.season, r)
+    finally:
+        session.close()
+
+
+@router.get("/bye-planner")
+def get_bye_planner_endpoint(
+    user: dict = Depends(get_current_user),
+) -> dict:
+    """Get full bye round planner data: matrix, risk score, summaries."""
+    from src.analytics.byes import get_bye_planner_data
+
+    config = get_config()
+    session = get_session()
+    try:
+        return get_bye_planner_data(session, user["user_id"], config.season)
+    finally:
+        session.close()

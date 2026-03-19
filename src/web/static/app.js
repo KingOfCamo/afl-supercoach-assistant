@@ -122,6 +122,16 @@ const App = {
             indicator.title = `Connected to API at ${API_BASE || 'localhost'}`;
             overlay.style.display = 'none';
 
+            // Show bye alerts
+            if (c.bye_alerts && c.bye_alerts.length) {
+                const banner = document.getElementById('bye-alert-banner');
+                const content = document.getElementById('bye-alert-content');
+                content.innerHTML = c.bye_alerts.map(a =>
+                    `<div class="bye-alert-item">&#9888; ${esc(a)}</div>`
+                ).join('');
+                banner.style.display = '';
+            }
+
             // Load team + live scores on first successful connection
             if (!this._initialLoad) {
                 this._initialLoad = true;
@@ -155,6 +165,7 @@ const App = {
 
         // Load data when switching sections
         if (name === 'dashboard') this.Dashboard.loadAll();
+        if (name === 'byes') this.Byes.loadAll();
     },
 
     // --- Team Builder ---
@@ -613,6 +624,15 @@ const App = {
         },
 
         _getLineupStatus(s) {
+            // Priority 0: Bye round — team not playing this round
+            if (s.is_on_bye) {
+                return {
+                    status: 'bye',
+                    label: 'BYE',
+                    tooltip: `${s.team} has a bye this round`,
+                };
+            }
+
             // Priority 1: Injury (but still check if they played below)
             const isInjured = !!s.injury;
 
@@ -1148,8 +1168,62 @@ const App = {
                 const res = await authFetch(`${API_BASE}/api/team`);
                 const data = await res.json();
                 this.renderTeam(data);
+                this.loadByeImpact();
             } catch (e) {
                 console.error('Failed to load team:', e);
+            }
+        },
+
+        async loadByeImpact() {
+            const round = App.state.config ? App.state.config.current_round : 1;
+            const bar = document.getElementById('bye-impact-bar');
+            try {
+                const res = await authFetch(`${API_BASE}/api/analytics/bye-impact?round=${round}`);
+                const data = await res.json();
+                if (!data.has_byes || data.on_bye === 0) {
+                    bar.style.display = 'none';
+                    return;
+                }
+                bar.style.display = '';
+
+                const total = data.playing + data.on_bye;
+                const playPct = total > 0 ? (data.playing / total * 100) : 100;
+                const byePct = total > 0 ? (data.on_bye / total * 100) : 0;
+
+                document.getElementById('bye-bar-label').textContent = `Round ${data.round} Bye Impact`;
+                document.getElementById('bye-bar-count').textContent =
+                    `${data.playing}/${total} playing | ${data.on_bye} on BYE`;
+
+                document.getElementById('bye-bar-fill-playing').style.width = `${playPct}%`;
+                document.getElementById('bye-bar-fill-bye').style.width = `${byePct}%`;
+
+                // Detail section
+                let detail = '';
+                if (data.bye_players && data.bye_players.length) {
+                    detail += '<div class="bye-detail-section"><strong>On Bye:</strong> ';
+                    detail += data.bye_players.map(p =>
+                        `<span class="bye-player-tag">${this._esc(p.player_name)} <small>(${this._esc(p.position_slot)})</small></span>`
+                    ).join(' ');
+                    detail += '</div>';
+                }
+                if (data.available_bench && data.available_bench.length) {
+                    detail += '<div class="bye-detail-section"><strong>Bench Available:</strong> ';
+                    detail += data.available_bench.map(p =>
+                        `<span class="bye-bench-tag">${this._esc(p.player_name)}${p.is_emergency ? ' (E)' : ''}</span>`
+                    ).join(' ');
+                    detail += '</div>';
+                }
+                if (data.coverage_gaps && data.coverage_gaps.length) {
+                    detail += '<div class="bye-detail-section bye-gap-warning">';
+                    detail += data.coverage_gaps.map(g => `<span>&#9888; ${this._esc(g)}</span>`).join(' ');
+                    detail += '</div>';
+                }
+                const detailEl = document.getElementById('bye-bar-detail');
+                detailEl.innerHTML = detail;
+                detailEl.style.display = detail ? '' : 'none';
+            } catch (e) {
+                bar.style.display = 'none';
+                console.error('Failed to load bye impact:', e);
             }
         },
 
@@ -1377,6 +1451,7 @@ const App = {
             let cardClass = `field-card team-${teamSlug}${selectable}`;
             if (s.is_captain) cardClass += ' is-captain';
             if (s.is_vice_captain) cardClass += ' is-vc';
+            if (s.is_on_bye) cardClass += ' is-bye';
 
             let html = `<div class="${cardClass}" data-pid="${s.player_id}" style="--team-color:${teamColor}" oncontextmenu="App.Team.showCardMenu(event, ${s.id}, ${s.player_id})" ${clickHandler}>`;
 
@@ -1429,7 +1504,8 @@ const App = {
             }
 
             const teamSlug = (s.team || '').toLowerCase().replace(/\s+/g, '-');
-            let html = `<div class="bench-card team-${teamSlug}${selectable}" data-pid="${s.player_id}" style="--team-color:${teamColor}" oncontextmenu="App.Team.showCardMenu(event, ${s.id}, ${s.player_id})" ${clickHandler}>`;
+            const byeClass = s.is_on_bye ? ' is-bye' : '';
+            let html = `<div class="bench-card team-${teamSlug}${selectable}${byeClass}" data-pid="${s.player_id}" style="--team-color:${teamColor}" oncontextmenu="App.Team.showCardMenu(event, ${s.id}, ${s.player_id})" ${clickHandler}>`;
 
             html += `<button class="fc-remove" onclick="event.stopPropagation();App.Team.removePlayer(${s.id})" title="Remove">&times;</button>`;
 
@@ -1612,6 +1688,23 @@ const App = {
                 html += `<span class="trade-detail">${esc(inp.player_name)} (${esc(inp.team)}) -- $${inp.current_price.toLocaleString()} | Proj: ${inp.projected_score.toFixed(0)}</span>`;
                 html += `</div>`;
                 html += `<div class="trade-stats">Net: $${rec.net_price.toLocaleString()} | Projected gain: +${rec.projected_gain.toFixed(0)} pts</div>`;
+
+                // Bye impact
+                if (rec.bye_impact) {
+                    const bi = rec.bye_impact;
+                    let byeHtml = '';
+                    if (bi.net_field_change > 0) {
+                        byeHtml = `<span style="color:var(--accent-green)">+${bi.net_field_change} field player${bi.net_field_change > 1 ? 's' : ''} in R${bi.rounds_gained.join(', R')}</span>`;
+                    } else if (bi.net_field_change < 0) {
+                        byeHtml = `<span style="color:var(--accent-red)">${bi.net_field_change} field player in R${bi.rounds_lost.join(', R')}</span>`;
+                    } else if (bi.rounds_gained.length > 0) {
+                        byeHtml = `<span style="color:var(--text-secondary)">Bye swap: gain R${bi.rounds_gained.join(',')} / lose R${bi.rounds_lost.join(',')}</span>`;
+                    } else {
+                        byeHtml = `<span style="color:var(--text-muted)">No bye change</span>`;
+                    }
+                    html += `<div class="trade-stats" style="font-size:11px">Bye impact: ${byeHtml}</div>`;
+                }
+
                 html += `</div>`;
             });
 
@@ -1736,6 +1829,134 @@ const App = {
                 }
             }
             log.scrollTop = log.scrollHeight;
+        },
+    },
+
+    // --- Bye Round Planner ---
+    Byes: {
+        _data: null,
+
+        async loadAll() {
+            try {
+                const res = await authFetch(`${API_BASE}/api/analytics/bye-planner`);
+                const data = await res.json();
+                this._data = data;
+                this.render(data);
+            } catch (e) {
+                console.error('Failed to load bye planner:', e);
+                document.getElementById('bye-risk-summary').innerHTML =
+                    '<div class="empty-state">Failed to load bye data</div>';
+            }
+        },
+
+        render(data) {
+            this.renderRiskScore(data.bye_risk_score, data.bye_rounds);
+            this.renderMatrix(data.players, data.bye_rounds);
+            this.renderRoundSummaries(data.round_summaries, data.bye_rounds);
+        },
+
+        renderRiskScore(score, byeRounds) {
+            const container = document.getElementById('bye-risk-summary');
+            if (!byeRounds || !byeRounds.length) {
+                container.innerHTML = '<div class="empty-state">No bye rounds found. Sync fixture data first.</div>';
+                return;
+            }
+
+            const color = score >= 70 ? 'var(--accent-green)' :
+                          score >= 40 ? 'var(--accent-yellow)' : 'var(--accent-red)';
+            const label = score >= 70 ? 'Well Prepared' :
+                          score >= 40 ? 'Some Risk' : 'High Risk';
+
+            let html = '<div class="bye-risk-card">';
+            html += '<div class="bye-risk-gauge">';
+            html += `<div class="bye-risk-score" style="color:${color}">${score}</div>`;
+            html += `<div class="bye-risk-label">${esc(label)}</div>`;
+            html += '<div class="bye-risk-sublabel">Bye Readiness Score</div>';
+            html += '</div>';
+            html += `<div class="bye-risk-rounds">Bye rounds: ${byeRounds.join(', ')}</div>`;
+            html += '</div>';
+            container.innerHTML = html;
+        },
+
+        renderMatrix(players, byeRounds) {
+            const container = document.getElementById('bye-matrix');
+            if (!players || !players.length || !byeRounds || !byeRounds.length) {
+                container.innerHTML = '<div class="empty-state">Import your team to see bye coverage matrix</div>';
+                return;
+            }
+
+            // Separate on-field vs bench
+            const onField = players.filter(p => p.is_on_field);
+            const bench = players.filter(p => !p.is_on_field);
+
+            let html = '<div class="bye-matrix-scroll"><table class="bye-matrix-table">';
+
+            // Header row
+            html += '<thead><tr>';
+            html += '<th class="bye-matrix-sticky">Player</th>';
+            html += '<th>Team</th>';
+            html += '<th>Pos</th>';
+            for (const rnd of byeRounds) {
+                html += `<th class="bye-matrix-rnd">R${rnd}</th>`;
+            }
+            html += '</tr></thead><tbody>';
+
+            // Render grouped rows
+            const renderGroup = (group, label) => {
+                html += `<tr class="bye-matrix-group"><td colspan="${3 + byeRounds.length}">${esc(label)}</td></tr>`;
+                for (const p of group) {
+                    html += '<tr>';
+                    html += `<td class="bye-matrix-sticky bye-matrix-name">${esc(p.player_name)}</td>`;
+                    html += `<td class="bye-matrix-team">${esc(p.team)}</td>`;
+                    html += `<td class="bye-matrix-pos">${esc(p.position || '-')}</td>`;
+                    for (const rnd of byeRounds) {
+                        const status = p.round_status[String(rnd)] || 'playing';
+                        const cls = status === 'bye' ? 'bye-cell-bye' :
+                                    status === 'injured' ? 'bye-cell-injured' : 'bye-cell-playing';
+                        const icon = status === 'bye' ? 'BYE' :
+                                     status === 'injured' ? '&#9888;' : '&#10003;';
+                        html += `<td class="bye-matrix-cell ${cls}">${icon}</td>`;
+                    }
+                    html += '</tr>';
+                }
+            };
+
+            renderGroup(onField, 'On Field');
+            renderGroup(bench, 'Bench');
+
+            html += '</tbody></table></div>';
+            container.innerHTML = html;
+        },
+
+        renderRoundSummaries(summaries, byeRounds) {
+            const container = document.getElementById('bye-round-summaries');
+            if (!byeRounds || !byeRounds.length) {
+                container.innerHTML = '';
+                return;
+            }
+
+            let html = '<div class="bye-summary-cards">';
+            for (const rnd of byeRounds) {
+                const s = summaries[String(rnd)];
+                if (!s) continue;
+
+                const statusClass = s.danger ? 'danger' : s.warning ? 'warning' : 'ok';
+                const statusLabel = s.danger ? 'DANGER' : s.warning ? 'WARNING' : 'OK';
+
+                html += `<div class="bye-summary-card ${statusClass}">`;
+                html += `<div class="bye-summary-round">Round ${rnd}</div>`;
+                html += `<div class="bye-summary-count">${s.playing}<small>/${s.playing + s.on_bye}</small></div>`;
+                html += `<div class="bye-summary-label">playing</div>`;
+                html += `<div class="bye-summary-badge ${statusClass}">${statusLabel}</div>`;
+                if (s.coverage_gaps && s.coverage_gaps.length) {
+                    html += '<div class="bye-summary-gaps">';
+                    s.coverage_gaps.forEach(g => { html += `<small>${esc(g)}</small>`; });
+                    html += '</div>';
+                }
+                html += '</div>';
+            }
+            html += '</div>';
+            container.innerHTML = html;
         },
     },
 };

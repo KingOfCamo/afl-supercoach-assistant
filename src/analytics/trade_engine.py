@@ -80,6 +80,7 @@ class TradeRecommendation:
     trade_in: TradeInCandidate
     net_price: int  # price_in - price_out (negative = saves money)
     projected_gain: float  # projected score improvement
+    bye_impact: Optional[dict] = None  # {"rounds_gained": [], "rounds_lost": [], "net_field_change": int}
 
 
 def _injury_severity(injury: Injury) -> float:
@@ -394,12 +395,34 @@ def suggest_trades(
             out_proj = project_player(trade_out.player_id, round_num, season=target_season)
             out_score = out_proj.projected_score if out_proj else (trade_out.rolling_3_avg or 0)
 
+            # Compute bye impact
+            bye_impact = None
+            try:
+                from src.analytics.byes import get_player_bye_rounds
+
+                bye_session = get_session()
+                try:
+                    out_byes = set(get_player_bye_rounds(bye_session, trade_out.team, target_season))
+                    in_byes = set(get_player_bye_rounds(bye_session, best.team, target_season))
+                finally:
+                    bye_session.close()
+                rounds_gained = sorted(out_byes - in_byes)
+                rounds_lost = sorted(in_byes - out_byes)
+                bye_impact = {
+                    "rounds_gained": rounds_gained,
+                    "rounds_lost": rounds_lost,
+                    "net_field_change": len(rounds_gained) - len(rounds_lost),
+                }
+            except Exception:
+                pass  # Bye data may not be populated yet
+
             recommendations.append(
                 TradeRecommendation(
                     trade_out=trade_out,
                     trade_in=best,
                     net_price=best.current_price - trade_out.current_price,
                     projected_gain=round(best.projected_score - out_score, 1),
+                    bye_impact=bye_impact,
                 )
             )
 

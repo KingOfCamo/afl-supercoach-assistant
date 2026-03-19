@@ -294,6 +294,20 @@ class Fixture(Base):
     squiggle_id: Mapped[Optional[int]] = mapped_column(Integer, unique=True)
 
 
+class ByeRound(Base):
+    """Tracks which teams have a bye in each round."""
+
+    __tablename__ = "bye_rounds"
+    __table_args__ = (
+        UniqueConstraint("season", "round", "team", name="uq_bye_season_round_team"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    season: Mapped[int] = mapped_column(Integer, index=True)
+    round: Mapped[int] = mapped_column(Integer, index=True)
+    team: Mapped[str] = mapped_column(String(50), index=True)
+
+
 class TeamDVP(Base):
     """Difficulty vs Position: points conceded by a team to each position.
 

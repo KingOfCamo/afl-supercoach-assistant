@@ -267,6 +267,34 @@ async def sync_afl_news_injuries() -> None:
         logger.error("sync_afl_news_injuries failed: %s", e)
 
 
+# ── Bye Rounds (derived from fixtures) ──
+
+
+async def sync_bye_rounds() -> None:
+    """Derive bye rounds from fixture data."""
+    source = "bye_rounds"
+    if should_skip(source, off_day_hours=12.0):
+        return
+
+    record_start(source)
+    try:
+        from src.analytics.byes import derive_bye_rounds
+        from src.models.database import get_session
+
+        config = get_config()
+        session = get_session()
+        try:
+            count = derive_bye_rounds(session, config.season)
+        finally:
+            session.close()
+
+        record_success(source, count)
+        logger.info("sync_bye_rounds: %d bye entries", count)
+    except Exception as e:
+        record_error(source, str(e))
+        logger.error("sync_bye_rounds failed: %s", e)
+
+
 # ── Run all sources ──
 
 
@@ -276,6 +304,7 @@ async def sync_all() -> Dict[str, Any]:
 
     tasks = [
         ("squiggle", sync_squiggle),
+        ("bye_rounds", sync_bye_rounds),
         ("supercoach_players", sync_supercoach_players),
         ("supercoach_round", sync_supercoach_round_data),
         ("footywire_scores", sync_footywire_scores),
