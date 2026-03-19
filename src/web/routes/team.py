@@ -54,6 +54,31 @@ class EmergencyRequest(BaseModel):
     emergencies: List[int]  # list of player_ids in priority order (max 4)
 
 
+class SwapRequest(BaseModel):
+    slot_a: str  # e.g. "MID3"
+    slot_b: str  # e.g. "BENCH2"
+
+
+def _get_slot_position(slot_name: str) -> str:
+    """Map slot name to required position line."""
+    for prefix in ("DEF", "MID", "RUC", "FWD"):
+        if slot_name.startswith(prefix):
+            return prefix
+    if slot_name.startswith("FLEX"):
+        return "FLEX"
+    return "BENCH"
+
+
+def _player_fits_slot(player_position: str, slot_position: str) -> bool:
+    """Check if a player's position(s) allow them to fill a given slot."""
+    if slot_position in ("BENCH", "FLEX"):
+        return True
+    if not player_position:
+        return False
+    player_positions = [p.strip().upper() for p in player_position.split("/")]
+    return slot_position in player_positions
+
+
 @router.get("")
 def get_team(user: dict = Depends(get_current_user)) -> dict:
     """Get current team with player stats."""
@@ -446,5 +471,108 @@ async def import_csv(
     except Exception as e:
         session.rollback()
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        session.close()
+
+
+@router.post("/swap")
+def swap_players(request: SwapRequest, user: dict = Depends(get_current_user)) -> dict:
+    """Swap two players between slots (field ↔ bench, field ↔ field, etc.).
+
+    Validates position eligibility before executing.
+    """
+    user_id = user["user_id"]
+    session = get_session()
+    try:
+        # Find both slots
+        slot_a = session.execute(
+            select(MyTeamSlot).where(
+                MyTeamSlot.user_id == user_id,
+                MyTeamSlot.position_slot == request.slot_a,
+            )
+        ).scalar_one_or_none()
+
+        slot_b = session.execute(
+            select(MyTeamSlot).where(
+                MyTeamSlot.user_id == user_id,
+                MyTeamSlot.position_slot == request.slot_b,
+            )
+        ).scalar_one_or_none()
+
+        if not slot_a or not slot_b:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Both slots must be occupied. "
+                       f"{'Slot ' + request.slot_a + ' empty. ' if not slot_a else ''}"
+                       f"{'Slot ' + request.slot_b + ' empty.' if not slot_b else ''}",
+            )
+
+        player_a = session.get(Player, slot_a.player_id)
+        player_b = session.get(Player, slot_b.player_id)
+
+        if not player_a or not player_b:
+            raise HTTPException(status_code=400, detail="Player data missing")
+
+        # Validate position eligibility
+        pos_b = _get_slot_position(request.slot_b)
+        pos_a = _get_slot_position(request.slot_a)
+
+        if not _player_fits_slot(player_a.position, pos_b):
+            raise HTTPException(
+                status_code=400,
+                detail=f"{player_a.name} ({player_a.position or '?'}) cannot play {pos_b} slot",
+            )
+        if not _player_fits_slot(player_b.position, pos_a):
+            raise HTTPException(
+                status_code=400,
+                detail=f"{player_b.name} ({player_b.position or '?'}) cannot play {pos_a} slot",
+            )
+
+        # Execute swap
+        slot_a.position_slot, slot_b.position_slot = request.slot_b, request.slot_a
+        session.commit()
+
+        return {
+            "status": "ok",
+            "slot_a": {"player_name": player_a.name, "new_slot": request.slot_b},
+            "slot_b": {"player_name": player_b.name, "new_slot": request.slot_a},
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        session.close()
+
+
+@router.get("/optimise")
+def get_optimised_lineup(
+    round_num: int = None,
+    user: dict = Depends(get_current_user),
+) -> dict:
+    """Get AI-optimised lineup suggestions for a round.
+
+    Returns swap suggestions but does NOT execute them.
+    """
+    from src.analytics.lineup_optimiser import optimise_lineup
+    from src.utils.config import get_config
+
+    config = get_config()
+    target_round = round_num or config.current_round
+
+    # Auto-detect round
+    session = get_session()
+    try:
+        from src.analytics.byes import detect_current_round
+        detected = detect_current_round(session, config.season)
+        if detected > 0 and round_num is None:
+            target_round = detected
+    except Exception:
+        pass
+
+    try:
+        result = optimise_lineup(session, user["user_id"], config.season, target_round)
+        return result
     finally:
         session.close()

@@ -89,6 +89,7 @@
 
                 <!-- Action Bar -->
                 <div class="toolbar">
+                    <button class="btn btn-optimise" onclick="App.Team.openOptimiser()">&#10024; Optimise</button>
                     <button class="btn" onclick="App.Team.importCSV()">Import CSV</button>
                     <button class="btn btn-danger" onclick="App.Team.clearTeam()">Clear Team</button>
                     <input type="file" id="csv-upload" accept=".csv" style="display:none" onchange="App.Team.handleCSV(event)">
@@ -326,6 +327,19 @@
             </div>
 
         </main>
+    </div>
+
+    <!-- Optimise Lineup Overlay -->
+    <div class="optimise-overlay" id="optimise-overlay" style="display:none">
+        <div class="optimise-panel">
+            <div class="optimise-header">
+                <h3 id="optimise-title">Optimised Lineup</h3>
+                <button class="optimise-close" onclick="App.Team.closeOptimiser()">&times;</button>
+            </div>
+            <div class="optimise-score" id="optimise-score"></div>
+            <div class="optimise-swaps" id="optimise-swaps"></div>
+            <div class="optimise-actions" id="optimise-actions"></div>
+        </div>
     </div>
 
     <script src="/static/app.js"></script>

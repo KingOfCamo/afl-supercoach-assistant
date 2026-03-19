@@ -183,6 +183,7 @@ const App = {
         _scoreView: 'last', // 'last', 'live', 'projected', 'average'
         _liveScoresExpanded: false,
         _liveRefreshInterval: null,
+        _swapSource: null, // {slot data object} of first selected player
         SALARY_CAP: 10000000,
 
         switchView(view) {
@@ -557,17 +558,246 @@ const App = {
         },
 
         handleCardClick(playerId) {
-            if (!this._captainMode) return;
-            if (this._captainMode === 'captain') {
-                this.setCaptain(playerId);
-            } else {
-                this.setVC(playerId);
+            // Captain/VC selection mode
+            if (this._captainMode) {
+                if (this._captainMode === 'captain') {
+                    this.setCaptain(playerId);
+                } else {
+                    this.setVC(playerId);
+                }
+                this._captainMode = null;
+                document.getElementById('captain-btn').classList.remove('selecting');
+                document.getElementById('vc-btn').classList.remove('selecting');
+                document.getElementById('captain-hint').style.display = 'none';
+                return;
             }
-            // Exit captain mode after selection
-            this._captainMode = null;
-            document.getElementById('captain-btn').classList.remove('selecting');
-            document.getElementById('vc-btn').classList.remove('selecting');
-            document.getElementById('captain-hint').style.display = 'none';
+
+            // Emergency mode handled elsewhere
+            if (this._emergencyMode) return;
+
+            // Swap mode
+            if (!this._lastTeamData) return;
+            const clickedSlot = this._lastTeamData.slots.find(s => s.player_id === playerId);
+            if (!clickedSlot) return;
+
+            if (!this._swapSource) {
+                // First click — select source
+                this._swapSource = clickedSlot;
+                this._highlightSwapTargets(clickedSlot);
+            } else if (this._swapSource.player_id === playerId) {
+                // Clicked same player — cancel
+                this.cancelSwap();
+            } else {
+                // Second click — execute swap
+                this._executeSwap(this._swapSource.position_slot, clickedSlot.position_slot);
+            }
+        },
+
+        cancelSwap() {
+            this._swapSource = null;
+            document.querySelectorAll('.swap-source, .swap-valid, .swap-invalid').forEach(el => {
+                el.classList.remove('swap-source', 'swap-valid', 'swap-invalid');
+            });
+        },
+
+        _canSwapTo(sourcePosition, targetSlotName) {
+            const targetPos = targetSlotName.startsWith('BENCH') ? 'BENCH'
+                : targetSlotName.startsWith('FLEX') ? 'FLEX'
+                : targetSlotName.replace(/\d+$/, '');
+            if (targetPos === 'BENCH' || targetPos === 'FLEX') return true;
+            if (!sourcePosition) return false;
+            return sourcePosition.split('/').map(p => p.trim().toUpperCase()).includes(targetPos);
+        },
+
+        _highlightSwapTargets(source) {
+            // Mark source card
+            const sourceCard = document.querySelector(`[data-pid="${source.player_id}"]`);
+            if (sourceCard) sourceCard.classList.add('swap-source');
+
+            // Mark all other cards as valid or invalid
+            if (!this._lastTeamData) return;
+            for (const s of this._lastTeamData.slots) {
+                if (s.player_id === source.player_id) continue;
+                const card = document.querySelector(`[data-pid="${s.player_id}"]`);
+                if (!card) continue;
+
+                const sourceCanGoToTarget = this._canSwapTo(source.position, s.position_slot);
+                const targetCanGoToSource = this._canSwapTo(s.position, source.position_slot);
+
+                if (sourceCanGoToTarget && targetCanGoToSource) {
+                    card.classList.add('swap-valid');
+                } else {
+                    card.classList.add('swap-invalid');
+                }
+            }
+        },
+
+        async _executeSwap(slotA, slotB) {
+            try {
+                const res = await authFetch(`${API_BASE}/api/team/swap`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({slot_a: slotA, slot_b: slotB}),
+                });
+                const data = await res.json();
+                if (!res.ok) {
+                    this._showToast(data.detail || 'Swap failed', 'error');
+                    this.cancelSwap();
+                    return;
+                }
+                this._showToast(`Swapped ${data.slot_a.player_name} ↔ ${data.slot_b.player_name}`, 'success');
+                this._swapSource = null;
+                await this.loadTeam();
+            } catch (e) {
+                this._showToast('Swap failed: ' + e.message, 'error');
+                this.cancelSwap();
+            }
+        },
+
+        _showToast(message, type) {
+            const existing = document.querySelector('.swap-toast');
+            if (existing) existing.remove();
+            const toast = document.createElement('div');
+            toast.className = `swap-toast swap-toast-${type}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.classList.add('visible'), 10);
+            setTimeout(() => { toast.classList.remove('visible'); setTimeout(() => toast.remove(), 300); }, 3000);
+        },
+
+        // --- AI Optimise ---
+        _optimiseData: null,
+        _optimiseChecked: [],
+
+        async openOptimiser() {
+            const overlay = document.getElementById('optimise-overlay');
+            const swapsContainer = document.getElementById('optimise-swaps');
+            const scoreContainer = document.getElementById('optimise-score');
+            const actionsContainer = document.getElementById('optimise-actions');
+
+            overlay.style.display = 'flex';
+            swapsContainer.innerHTML = '<div class="loading"><div class="spinner"></div><div>Analysing lineup...</div></div>';
+            scoreContainer.innerHTML = '';
+            actionsContainer.innerHTML = '';
+
+            const round = App.state.config ? App.state.config.current_round : 1;
+            document.getElementById('optimise-title').textContent = `Optimised Lineup — Round ${round}`;
+
+            try {
+                const res = await authFetch(`${API_BASE}/api/team/optimise?round_num=${round}`);
+                const data = await res.json();
+                this._optimiseData = data;
+                this._optimiseChecked = data.swaps.map((_, i) => true);
+                this._renderOptimisePanel(data);
+            } catch (e) {
+                swapsContainer.innerHTML = `<div class="empty-state">Failed to load: ${e.message}</div>`;
+            }
+        },
+
+        closeOptimiser() {
+            document.getElementById('optimise-overlay').style.display = 'none';
+            this._optimiseData = null;
+        },
+
+        _renderOptimisePanel(data) {
+            const scoreContainer = document.getElementById('optimise-score');
+            const swapsContainer = document.getElementById('optimise-swaps');
+            const actionsContainer = document.getElementById('optimise-actions');
+
+            if (!data.swaps || !data.swaps.length) {
+                scoreContainer.innerHTML = `<div class="optimise-score-bar">Your lineup is already optimal for this round.</div>`;
+                swapsContainer.innerHTML = '';
+                actionsContainer.innerHTML = '<button class="btn" onclick="App.Team.closeOptimiser()">Close</button>';
+                return;
+            }
+
+            const sign = data.improvement >= 0 ? '+' : '';
+            scoreContainer.innerHTML = `
+                <div class="optimise-score-bar">
+                    <span>Current: <strong>${data.current_total.toFixed(0)}</strong> pts</span>
+                    <span class="optimise-arrow">→</span>
+                    <span>Optimised: <strong class="optimise-highlight">${data.optimal_total.toFixed(0)}</strong> pts</span>
+                    <span class="optimise-delta ${data.improvement >= 0 ? 'positive' : 'negative'}">(${sign}${data.improvement.toFixed(0)})</span>
+                </div>
+            `;
+
+            let html = '';
+            data.swaps.forEach((swap, i) => {
+                const checked = this._optimiseChecked[i];
+                html += `<div class="optimise-swap-card ${checked ? 'checked' : 'unchecked'}">`;
+                html += `<div class="optimise-swap-header">`;
+                html += `<span class="optimise-swap-num">SWAP ${i + 1}</span>`;
+                html += `<div class="optimise-swap-toggle">`;
+                html += `<button class="btn btn-sm ${checked ? 'btn-success' : ''}" onclick="App.Team.toggleOptimiseSwap(${i}, true)">&#10003;</button>`;
+                html += `<button class="btn btn-sm ${!checked ? 'btn-danger' : ''}" onclick="App.Team.toggleOptimiseSwap(${i}, false)">&#10005;</button>`;
+                html += `</div></div>`;
+
+                // OUT player
+                html += `<div class="optimise-out">`;
+                html += `<span class="optimise-label-out">OUT</span>`;
+                html += `<span class="optimise-player">${esc(swap.out_player)} <small>(${esc(swap.out_slot)})</small></span>`;
+                html += `<span class="optimise-team">${esc(swap.out_team)}</span>`;
+                html += `<span class="optimise-reason">${esc(swap.out_reason)}</span>`;
+                html += `<span class="optimise-pts">${swap.out_projected.toFixed(0)} pts</span>`;
+                html += `</div>`;
+
+                // IN player
+                html += `<div class="optimise-in">`;
+                html += `<span class="optimise-label-in">IN</span>`;
+                html += `<span class="optimise-player">${esc(swap.in_player)} <small>(${esc(swap.in_slot)})</small></span>`;
+                html += `<span class="optimise-team">${esc(swap.in_team)}</span>`;
+                html += `<span class="optimise-pts">${swap.in_projected.toFixed(0)} pts</span>`;
+                html += `</div>`;
+
+                html += `<div class="optimise-impact">Impact: <strong>+${swap.impact.toFixed(0)}</strong> pts</div>`;
+                html += `</div>`;
+            });
+
+            swapsContainer.innerHTML = html;
+
+            const checkedCount = this._optimiseChecked.filter(Boolean).length;
+            actionsContainer.innerHTML = `
+                <button class="btn btn-primary" onclick="App.Team.acceptOptimise('all')">Accept All (${data.swaps.length})</button>
+                <button class="btn btn-success" onclick="App.Team.acceptOptimise('selected')">Accept Selected (${checkedCount})</button>
+                <button class="btn" onclick="App.Team.closeOptimiser()">Dismiss</button>
+            `;
+        },
+
+        toggleOptimiseSwap(index, value) {
+            this._optimiseChecked[index] = value;
+            if (this._optimiseData) this._renderOptimisePanel(this._optimiseData);
+        },
+
+        async acceptOptimise(mode) {
+            if (!this._optimiseData) return;
+            const swaps = this._optimiseData.swaps;
+            const toExecute = mode === 'all'
+                ? swaps
+                : swaps.filter((_, i) => this._optimiseChecked[i]);
+
+            if (!toExecute.length) {
+                this._showToast('No swaps selected', 'error');
+                return;
+            }
+
+            let executed = 0;
+            for (const swap of toExecute) {
+                try {
+                    const res = await authFetch(`${API_BASE}/api/team/swap`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({slot_a: swap.slot_a, slot_b: swap.slot_b}),
+                    });
+                    if (res.ok) executed++;
+                } catch (e) {
+                    console.error('Swap failed:', e);
+                }
+            }
+
+            this.closeOptimiser();
+            const totalImpact = toExecute.reduce((sum, s) => sum + s.impact, 0);
+            this._showToast(`${executed} swap${executed > 1 ? 's' : ''} applied. +${totalImpact.toFixed(0)} projected points`, 'success');
+            await this.loadTeam();
         },
 
         _updateCaptainPicker(data) {
@@ -1485,9 +1715,6 @@ const App = {
             const displayName = this._abbreviateName(s.player_name);
 
             const selectable = this._captainMode ? ' captain-selectable' : '';
-            const clickHandler = this._captainMode
-                ? `onclick="App.Team.handleCardClick(${s.player_id})"`
-                : '';
 
             // Card classes for captain/vc styling + team guernsey
             const teamSlug = (s.team || '').toLowerCase().replace(/\s+/g, '-');
@@ -1496,7 +1723,7 @@ const App = {
             if (s.is_vice_captain) cardClass += ' is-vc';
             if (s.is_on_bye) cardClass += ' is-bye';
 
-            let html = `<div class="${cardClass}" data-pid="${s.player_id}" style="--team-color:${teamColor}" oncontextmenu="App.Team.showCardMenu(event, ${s.id}, ${s.player_id})" ${clickHandler}>`;
+            let html = `<div class="${cardClass}" data-pid="${s.player_id}" data-slot="${s.position_slot}" style="--team-color:${teamColor}" onclick="App.Team.handleCardClick(${s.player_id})" oncontextmenu="App.Team.showCardMenu(event, ${s.id}, ${s.player_id})">`;
 
             // Remove button
             html += `<button class="fc-remove" onclick="event.stopPropagation();App.Team.removePlayer(${s.id})" title="Remove">&times;</button>`;
@@ -1537,18 +1764,18 @@ const App = {
             const displayName = this._abbreviateName(s.player_name);
 
             let selectable = this._captainMode ? ' captain-selectable' : '';
-            let clickHandler = this._captainMode
-                ? `onclick="App.Team.handleCardClick(${s.player_id})"`
-                : '';
+            let clickHandler = '';
 
             if (this._emergencyMode) {
                 selectable = ' emg-selectable';
                 clickHandler = `onclick="App.Team.handleBenchEmergencyClick(${s.player_id})"`;
+            } else {
+                clickHandler = `onclick="App.Team.handleCardClick(${s.player_id})"`;
             }
 
             const teamSlug = (s.team || '').toLowerCase().replace(/\s+/g, '-');
             const byeClass = s.is_on_bye ? ' is-bye' : '';
-            let html = `<div class="bench-card team-${teamSlug}${selectable}${byeClass}" data-pid="${s.player_id}" style="--team-color:${teamColor}" oncontextmenu="App.Team.showCardMenu(event, ${s.id}, ${s.player_id})" ${clickHandler}>`;
+            let html = `<div class="bench-card team-${teamSlug}${selectable}${byeClass}" data-pid="${s.player_id}" data-slot="${s.position_slot}" style="--team-color:${teamColor}" oncontextmenu="App.Team.showCardMenu(event, ${s.id}, ${s.player_id})" ${clickHandler}>`;
 
             html += `<button class="fc-remove" onclick="event.stopPropagation();App.Team.removePlayer(${s.id})" title="Remove">&times;</button>`;
 
@@ -2052,3 +2279,9 @@ function renderMarkdown(text) {
 
 // Initialize on load
 document.addEventListener('DOMContentLoaded', () => App.init());
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        if (App.Team._swapSource) App.Team.cancelSwap();
+        if (document.getElementById('optimise-overlay').style.display !== 'none') App.Team.closeOptimiser();
+    }
+});
