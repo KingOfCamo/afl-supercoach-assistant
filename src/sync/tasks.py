@@ -228,14 +228,25 @@ async def sync_afl_lineups() -> None:
     record_start(source)
     config = get_config()
     count = 0
-    print(f"[LINEUP] season={config.season} round={config.current_round}", flush=True)
+
+    # Auto-detect current round from fixture data instead of stale config
+    round_num = config.current_round
+    try:
+        from src.models.database import get_session as _gs
+        from src.analytics.byes import detect_current_round
+        _s = _gs()
+        round_num = detect_current_round(_s, config.season)
+        _s.close()
+    except Exception:
+        pass
+    print(f"[LINEUP] season={config.season} round={round_num}", flush=True)
 
     # Source 1: FootyWire (server-rendered HTML, always works)
     try:
         from src.scrapers.afl_lineups import scrape_footywire_selections
 
         print(f"[LINEUP] trying FootyWire...", flush=True)
-        count = await scrape_footywire_selections(config.season, config.current_round)
+        count = await scrape_footywire_selections(config.season, round_num)
         if count > 0:
             record_success(source, count)
             logger.info("sync_afl_lineups (footywire): %d entries", count)
@@ -250,7 +261,7 @@ async def sync_afl_lineups() -> None:
 
         scraper = AflLineupScraper()
         try:
-            count = await scraper.scrape_round_lineups(config.season, config.current_round)
+            count = await scraper.scrape_round_lineups(config.season, round_num)
         finally:
             await scraper.close()
 
