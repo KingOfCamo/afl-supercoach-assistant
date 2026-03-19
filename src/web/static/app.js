@@ -2659,6 +2659,146 @@ const App = {
             `;
         },
     },
+
+    // --- Player Comparison ---
+    Compare: {
+        _ids: [null, null],
+        _timeout: null,
+
+        search(query, slot) {
+            const dropdown = document.getElementById(`cmp-dropdown-${slot}`);
+            if (!query || query.length < 2) { dropdown.style.display = 'none'; return; }
+
+            clearTimeout(this._timeout);
+            this._timeout = setTimeout(async () => {
+                try {
+                    const res = await authFetch(`${API_BASE}/api/players/search?q=${encodeURIComponent(query)}&limit=8`);
+                    const data = await res.json();
+                    if (data.players && data.players.length) {
+                        dropdown.innerHTML = data.players.map(p =>
+                            `<div class="cmp-opt" onclick="App.Compare.select(${slot}, ${p.id}, '${p.name.replace(/'/g, "\\'")}')">${esc(p.name)} <small style="color:var(--text-muted)">${esc(p.team)} ${esc(p.position || '')}</small></div>`
+                        ).join('');
+                        dropdown.style.display = 'block';
+                    } else {
+                        dropdown.innerHTML = '<div class="cmp-opt" style="color:var(--text-muted)">No results</div>';
+                        dropdown.style.display = 'block';
+                    }
+                } catch (e) { dropdown.style.display = 'none'; }
+            }, 250);
+        },
+
+        select(slot, id, name) {
+            this._ids[slot] = id;
+            document.getElementById(`cmp-search-${slot + 1}`).value = name;
+            document.getElementById(`cmp-dropdown-${slot}`).style.display = 'none';
+            if (this._ids[0] && this._ids[1]) this.run();
+        },
+
+        async run() {
+            const ids = this._ids.filter(Boolean);
+            if (ids.length < 2) return;
+            const container = document.getElementById('cmp-results');
+            container.innerHTML = '<div class="loading"><div class="spinner"></div><div>Comparing...</div></div>';
+
+            try {
+                const res = await authFetch(`${API_BASE}/api/players/compare?ids=${ids.join(',')}`);
+                const data = await res.json();
+                this.render(data.players);
+                this.loadVerdict(ids);
+            } catch (e) {
+                container.innerHTML = `<div class="empty-state">Error: ${e.message}</div>`;
+            }
+        },
+
+        render(players) {
+            if (!players || players.length < 2) return;
+            const container = document.getElementById('cmp-results');
+
+            const hi = (vals, higher = true) => {
+                const nums = vals.map(v => typeof v === 'number' ? v : -Infinity);
+                const best = higher ? Math.max(...nums) : Math.min(...nums);
+                return vals.map(v => {
+                    const fmt = v === null || v === undefined ? '-' : typeof v === 'number' && v > 1000 ? '$' + v.toLocaleString() : v;
+                    return v === best && v !== null && typeof v === 'number' ? `<td class="cmp-cell cmp-best">${fmt}</td>` : `<td class="cmp-cell">${fmt}</td>`;
+                }).join('');
+            };
+
+            const spark = (scores) => {
+                if (!scores || !scores.length) return '-';
+                const mx = Math.max(...scores), mn = Math.min(...scores), rng = mx - mn || 1;
+                const blocks = ['▁','▂','▃','▄','▅','▆','▇','█'];
+                return '<span style="font-family:monospace;color:var(--accent-blue);letter-spacing:-1px">' +
+                    scores.map(s => blocks[Math.round(((s - mn) / rng) * 7)]).join('') + '</span>';
+            };
+
+            let html = '<table class="data-table" style="font-size:12px"><thead><tr><th></th>';
+            players.forEach(p => {
+                html += `<th style="text-align:center;padding:12px"><div style="font-size:14px;font-weight:700">${esc(p.name)}</div><div style="font-size:11px;color:var(--text-muted)">${esc(p.team)} · ${esc(p.position || '')}</div><div style="color:var(--accent-cyan);font-weight:600">$${(p.price || 0).toLocaleString()}</div></th>`;
+            });
+            html += '</tr></thead><tbody>';
+
+            // Scoring
+            html += `<tr style="background:var(--bg-card)"><td colspan="${players.length + 1}" style="font-weight:700;color:var(--accent-cyan)">Scoring</td></tr>`;
+            html += `<tr><td class="muted">Season Avg</td>${hi(players.map(p => p.scoring.season_avg))}</tr>`;
+            html += `<tr><td class="muted">Last 3</td>${hi(players.map(p => p.scoring.last_3_avg))}</tr>`;
+            html += `<tr><td class="muted">Last 5</td>${hi(players.map(p => p.scoring.last_5_avg))}</tr>`;
+            html += `<tr><td class="muted">High / Low</td>${players.map(p => `<td class="cmp-cell">${p.scoring.high} / ${p.scoring.low}</td>`).join('')}</tr>`;
+            html += `<tr><td class="muted">Consistency</td>${hi(players.map(p => p.scoring.consistency))}</tr>`;
+            html += `<tr><td class="muted">History</td>${players.map(p => `<td class="cmp-cell">${spark(p.scoring.all_scores)}</td>`).join('')}</tr>`;
+
+            // Pricing
+            html += `<tr style="background:var(--bg-card)"><td colspan="${players.length + 1}" style="font-weight:700;color:var(--accent-cyan)">Pricing</td></tr>`;
+            html += `<tr><td class="muted">Price</td>${hi(players.map(p => p.pricing.price), false)}</tr>`;
+            html += `<tr><td class="muted">Breakeven</td>${hi(players.map(p => p.pricing.breakeven), false)}</tr>`;
+            html += `<tr><td class="muted">Trend (3wk)</td>${players.map(p => {
+                const t = p.pricing.price_trend_3wk || 0;
+                return `<td class="cmp-cell" style="color:${t > 0 ? 'var(--accent-green)' : t < 0 ? 'var(--accent-red)' : ''}">${t >= 0 ? '+' : ''}$${t.toLocaleString()}</td>`;
+            }).join('')}</tr>`;
+
+            // Fixtures
+            html += `<tr style="background:var(--bg-card)"><td colspan="${players.length + 1}" style="font-weight:700;color:var(--accent-cyan)">Fixtures (Next 5)</td></tr>`;
+            for (let i = 0; i < 5; i++) {
+                html += `<tr><td class="muted">R${players[0]?.fixtures[i]?.round || '?'}</td>`;
+                players.forEach(p => {
+                    const f = p.fixtures[i];
+                    if (!f) html += '<td class="cmp-cell">-</td>';
+                    else if (f.is_bye) html += '<td class="cmp-cell" style="color:#475569;font-weight:700">BYE</td>';
+                    else html += `<td class="cmp-cell">${f.is_home ? 'vs' : '@'} ${esc(f.opponent)} <span style="color:var(--accent-yellow)">${'★'.repeat(f.dvp_stars)}</span></td>`;
+                });
+                html += '</tr>';
+            }
+
+            // Advanced
+            html += `<tr style="background:var(--bg-card)"><td colspan="${players.length + 1}" style="font-weight:700;color:var(--accent-cyan)">Advanced</td></tr>`;
+            html += `<tr><td class="muted">CBA%</td>${hi(players.map(p => p.advanced.cba_pct))}</tr>`;
+            html += `<tr><td class="muted">TOG%</td>${hi(players.map(p => p.advanced.tog_pct))}</tr>`;
+            html += `<tr><td class="muted">Ownership</td>${players.map(p => `<td class="cmp-cell">${p.advanced.ownership_pct ? p.advanced.ownership_pct.toFixed(0) + '%' : '-'}</td>`).join('')}</tr>`;
+            html += `<tr><td class="muted">Next Bye</td>${players.map(p => `<td class="cmp-cell">${p.advanced.next_bye ? 'R' + p.advanced.next_bye : '-'}</td>`).join('')}</tr>`;
+
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        },
+
+        async loadVerdict(ids) {
+            const panel = document.getElementById('cmp-verdict');
+            const content = document.getElementById('cmp-verdict-content');
+            panel.style.display = '';
+            content.innerHTML = '<div class="loading"><div class="spinner"></div><div>AI analysing...</div></div>';
+
+            const round = App.state.config ? App.state.config.current_round : 1;
+            try {
+                const res = await authFetch(`${API_BASE}/api/ai/compare`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({player_ids: ids, round, season: 2026}),
+                });
+                const data = await res.json();
+                content.innerHTML = `<p style="font-size:14px;line-height:1.7">${renderMarkdown(data.verdict)}</p>`;
+            } catch (e) {
+                content.innerHTML = `<div class="empty-state" style="color:var(--accent-red)">Error: ${e.message}</div>`;
+            }
+        },
+    },
 };
 
 // --- Helpers ---

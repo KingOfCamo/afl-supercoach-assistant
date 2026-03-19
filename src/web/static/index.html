@@ -39,6 +39,7 @@
                     <a class="nav-tab" data-section="warroom" onclick="App.showSection('warroom')">TRADES</a>
                     <a class="nav-tab" data-section="ownership" onclick="App.showSection('ownership')">OWNERSHIP</a>
                     <a class="nav-tab" data-section="tracker" onclick="App.showSection('tracker')">MY SEASON</a>
+                    <a class="nav-tab" data-section="compare" onclick="App.showSection('compare')">COMPARE</a>
                 </nav>
             </div>
             <div class="top-nav-right">
@@ -468,6 +469,29 @@
                         <div id="tracker-coach-rating">
                             <div class="empty-state">Rating will appear after a few rounds of data.</div>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION: Player Comparison -->
+            <div id="section-compare" class="section">
+                <div class="section-inner">
+                    <h2 class="section-title">Player Comparison</h2>
+                    <div class="cmp-search-row">
+                        <div class="cmp-search-box">
+                            <input class="input" id="cmp-search-1" type="text" placeholder="Search player..." oninput="App.Compare.search(this.value, 0)" autocomplete="off">
+                            <div class="cmp-dropdown" id="cmp-dropdown-0"></div>
+                        </div>
+                        <span class="cmp-vs">VS</span>
+                        <div class="cmp-search-box">
+                            <input class="input" id="cmp-search-2" type="text" placeholder="Search player..." oninput="App.Compare.search(this.value, 1)" autocomplete="off">
+                            <div class="cmp-dropdown" id="cmp-dropdown-1"></div>
+                        </div>
+                    </div>
+                    <div id="cmp-results"></div>
+                    <div class="warroom-panel" id="cmp-verdict" style="display:none">
+                        <h3>AI Verdict</h3>
+                        <div id="cmp-verdict-content"></div>
                     </div>
                 </div>
             </div>

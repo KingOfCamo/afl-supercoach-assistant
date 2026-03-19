@@ -45,6 +45,12 @@ class WeeklyBriefingRequest(BaseModel):
     force: bool = False
 
 
+class CompareRequest(BaseModel):
+    player_ids: list[int]
+    round: int = None
+    season: int = 2026
+
+
 def _get_advisor(user_id: int):
     """Create a SuperCoachAdvisor instance scoped to a user."""
     from src.ai.advisor import SuperCoachAdvisor
@@ -332,3 +338,43 @@ async def generate_weekly_briefing(
         "generated_at": datetime.utcnow().isoformat(),
         "cached": False,
     }
+
+
+@router.post("/compare")
+async def ai_compare_verdict(
+    request: CompareRequest,
+    user: dict = Depends(get_current_user),
+) -> dict:
+    """AI verdict comparing 2-3 players."""
+    from src.web.routes.players import compare_players as _compare
+
+    # Get comparison data
+    ids_str = ",".join(str(i) for i in request.player_ids)
+    comp_data = _compare(ids=ids_str, round_num=request.round, user=user)
+    players = comp_data.get("players", [])
+
+    if len(players) < 2:
+        return {"verdict": "Not enough player data to compare."}
+
+    prompt = "Compare these SuperCoach players and give a decisive verdict:\n\n"
+    for p in players:
+        s = p["scoring"]
+        pr = p["pricing"]
+        a = p["advanced"]
+        prompt += f"{p['name']} ({p['team']}, {p['position']}) — ${p.get('price', 0) or 0:,}\n"
+        prompt += f"  Avg: {s['season_avg']} | Last 3: {s['last_3_avg']} | Last 5: {s['last_5_avg']} | High/Low: {s['high']}/{s['low']} | Consistency: {s['consistency']}%\n"
+        prompt += f"  BE: {pr['breakeven']} | Price trend: ${pr['price_trend_3wk']:+,}\n"
+        prompt += f"  CBA%: {a['cba_pct'] or 'N/A'} | TOG%: {a['tog_pct'] or 'N/A'} | Own: {a['ownership_pct'] or 'N/A'}% | Bye: R{a['next_bye'] or '?'}\n\n"
+
+    prompt += "Give a clear verdict in 3-4 sentences. Pick a winner and explain why."
+
+    try:
+        advisor = _get_advisor(user["user_id"])
+        result = await asyncio.to_thread(
+            advisor._call_claude,
+            prompt,
+            system_override="You are a SuperCoach analyst. Give a brief, decisive verdict comparing players. Be specific with data. No hedging — pick a winner in 3-4 sentences.",
+        )
+        return {"verdict": result}
+    except Exception as e:
+        return {"verdict": f"Error: {str(e)}"}
